@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1016576536089",
+    "firebase_url": "https://esp32-light-spectrum-analyzer-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "esp32-light-spectrum-analyzer",
+    "storage_bucket": "esp32-light-spectrum-analyzer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1016576536089:android:f67082fd8fe6938ee4c488",
+        "android_client_info": {
+          "package_name": "com.example.spectrumapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdx9y-G47inDvJM7EXr2jbtDMphkLvVqQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
