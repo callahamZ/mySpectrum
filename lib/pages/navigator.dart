@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'data_record.dart'; // Import DataRecordPage
-import 'settings.dart'; // Import SettingsPage
+import 'data_record.dart';
+import 'settings.dart';
+import 'home_page.dart'; // Import the new file
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,37 +12,9 @@ class HomePage extends StatefulWidget {
 
 class HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  String realTimeValue = '0';
-
-  Widget _buildHomePageContent() {
-    final DatabaseReference spektrumData = FirebaseDatabase.instance
-        .ref()
-        .child('sensorSpektrum/F1');
-
-    spektrumData.onValue.listen((event) {
-      setState(() {
-        realTimeValue = event.snapshot.value.toString();
-      });
-    });
-
-    return Container(
-      color: Colors.lightBlue[100],
-      padding: const EdgeInsets.all(16.0),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('Welcome to Home Page', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 20),
-            Text("Data F1 = $realTimeValue"),
-          ],
-        ),
-      ),
-    );
-  }
 
   late final List<Widget> _widgetOptions = <Widget>[
-    _buildHomePageContent(), // Use the function here
+    HomePageContent(),
     DataRecordPage(),
     SettingsPage(),
   ];
@@ -76,9 +48,7 @@ class HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
       ),
-      body: _widgetOptions.elementAt(
-        _selectedIndex,
-      ), // Display the selected page
+      body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
