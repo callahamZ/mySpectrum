@@ -1,28 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class HomePageContent extends StatelessWidget {
-  final DatabaseReference spektrumDatabase =
-      FirebaseDatabase.instance.ref().child('sensorSpektrum');
+  final DatabaseReference spektrumDatabase = FirebaseDatabase.instance
+      .ref()
+      .child('sensorSpektrum');
 
   HomePageContent({super.key});
+
+  Widget bottomChartAxisLabel(double value, TitleMeta meta) {
+    final xAxisLabels = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"];
+    final arrIndex = value.toInt() - 1;
+    return SideTitleWidget(meta: meta, child: Text(xAxisLabels[arrIndex]));
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DatabaseEvent>(
       stream: spektrumDatabase.onValue,
       builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-        String spektrumDataArr = '0';
+        List<double> spektrumDataIntVal = [];
+        Map<dynamic, dynamic>? spektrumDataMap;
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         } else if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-          spektrumDataArr = snapshot.data!.snapshot.value.toString();
-        } else {
-          spektrumDataArr = '0';
+          spektrumDataMap =
+              snapshot.data!.snapshot.value as Map<dynamic, dynamic>?;
         }
+
+        if (spektrumDataMap != null) {
+          try {
+            for (int i = 1; i <= 8; i++) {
+              String key = 'F$i';
+              if (spektrumDataMap.containsKey(key)) {
+                double value = double.parse(
+                  spektrumDataMap[key].toString(),
+                ); // Parse to double
+                spektrumDataIntVal.add(value);
+              }
+            }
+          } catch (e) {
+            print("Error processing data: $e");
+          }
+        }
+
+        List<FlSpot> chartData =
+            spektrumDataIntVal.asMap().entries.map((entry) {
+              //convert dataArray to FlSpot list
+              return FlSpot(
+                entry.key.toDouble() + 1,
+                entry.value,
+              ); // x values are 1-8
+            }).toList();
+
         return Container(
           color: Colors.lightBlue[100],
           padding: const EdgeInsets.all(16.0),
@@ -30,10 +64,85 @@ class HomePageContent extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const Text('Welcome to Home Page',
-                    style: TextStyle(fontSize: 24)),
+                const Text(
+                  'Welcome to Home Page',
+                  style: TextStyle(fontSize: 24),
+                ),
                 const SizedBox(height: 20),
-                Text("Data = $spektrumDataArr"),
+                Text("Data = $spektrumDataIntVal"),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 300,
+                  width: double.infinity,
+                  child: LineChart(
+                    LineChartData(
+                      gridData: const FlGridData(show: true),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: bottomChartAxisLabel,
+                          ),
+                        ),
+                      ),
+
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(
+                          color: const Color.fromARGB(255, 0, 0, 1),
+                          width: 2,
+                        ),
+                      ),
+                      minX: 1,
+                      maxX: 8,
+                      minY: 0,
+                      maxY: 1000,
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: chartData,
+                          isCurved: true,
+                          barWidth: 3,
+                          color: Colors.black,
+                          dotData: const FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color.fromRGBO(111, 47, 159, 0.8),
+                                const Color.fromRGBO(0, 31, 95, 0.8),
+                                const Color.fromRGBO(63, 146, 207, 0.8),
+                                const Color.fromRGBO(0, 175, 239, 0.8),
+                                const Color.fromRGBO(0, 175, 80, 0.8),
+                                const Color.fromRGBO(255, 255, 0, 0.8),
+                                const Color.fromRGBO(247, 149, 70, 0.8),
+                                const Color.fromRGBO(255, 0, 0, 0.8),
+                              ],
+                              stops: const [
+                                0,
+                                0.14285714285714285,
+                                0.2857142857142857,
+                                0.42857142857142855,
+                                0.5714285714285714,
+                                0.7142857142857143,
+                                0.8571428571428571,
+                                1,
+                              ],
+                              begin: Alignment.bottomLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
