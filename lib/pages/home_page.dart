@@ -59,10 +59,52 @@ class HomePageContent extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(10.0),
+                boxShadow: [ // Added boxShadow
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.cloud,
+                    color: Colors.white,
+                    size: 24.0,
+                  ),
+                  const SizedBox(width: 8.0),
+                  const Text(
+                    "Firebase Connected",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(left: 16.0, right: 16.0),
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10.0), // Add border radius
+                borderRadius: BorderRadius.circular(10.0),
+                boxShadow: [ // Added boxShadow
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Center(
                 child: SizedBox(
@@ -143,11 +185,19 @@ class HomePageContent extends StatelessWidget {
               children: [
                 Expanded(
                   child: Container(
-                    margin: const EdgeInsets.only(left: 16.0, right: 8.0),
+                    margin: const EdgeInsets.only(left: 16.0, right: 8.0, top: 16.0),
                     padding: const EdgeInsets.all(8.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10.0),
+                      boxShadow: [ // Added boxShadow
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: const Center(
                       child: Text("Suhu"),
@@ -156,11 +206,19 @@ class HomePageContent extends StatelessWidget {
                 ),
                  Expanded(
                   child: Container(
-                    margin: const EdgeInsets.only(right: 16.0, left: 8.0),
+                    margin: const EdgeInsets.only(right: 16.0, left: 8.0, top: 16.0),
                     padding: const EdgeInsets.all(8.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10.0),
+                      boxShadow: [ // Added boxShadow
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: const Center(
                       child: Text("Lux"),
