@@ -16,9 +16,9 @@ class HomePageState extends State<HomePage> {
 
   late final List<Widget> _widgetOptions = <Widget>[
     HomePageContent(),
+    CompareModePage(),
     DataRecordPage(),
-    SettingsPage(),
-    CompareModePage()
+    SettingsPage()
   ];
 
   void _onItemTapped(int index) {
@@ -56,7 +56,12 @@ class HomePageState extends State<HomePage> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home), 
-            label: 'Home'),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.compare),
+            label: 'Compare Mode',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
             label: 'Data Record',
@@ -64,10 +69,6 @@ class HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.compare),
-            label: 'Compare Mode',
           ),
         ],
         currentIndex: _selectedIndex,
