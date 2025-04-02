@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'data_record.dart';
 import 'settings.dart';
 import 'home_page.dart';
+import 'compare_mode.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,6 +18,7 @@ class HomePageState extends State<HomePage> {
     HomePageContent(),
     DataRecordPage(),
     SettingsPage(),
+    CompareModePage()
   ];
 
   void _onItemTapped(int index) {
@@ -28,7 +30,7 @@ class HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+      backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: RichText(
@@ -52,7 +54,9 @@ class HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home), 
+            label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
             label: 'Data Record',
@@ -61,9 +65,14 @@ class HomePageState extends State<HomePage> {
             icon: Icon(Icons.settings),
             label: 'Settings',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.compare),
+            label: 'Compare Mode',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
     );

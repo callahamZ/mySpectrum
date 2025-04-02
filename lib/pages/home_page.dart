@@ -3,9 +3,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class HomePageContent extends StatelessWidget {
-  final DatabaseReference spektrumDatabase = FirebaseDatabase.instance
-      .ref()
-      .child('sensorSpektrum');
+  final DatabaseReference spektrumDatabase =
+      FirebaseDatabase.instance.ref().child('sensorSpektrum');
 
   HomePageContent({super.key});
 
@@ -50,28 +49,23 @@ class HomePageContent extends StatelessWidget {
 
         List<FlSpot> chartData =
             spektrumDataIntVal.asMap().entries.map((entry) {
-              //convert dataArray to FlSpot list
-              return FlSpot(
-                entry.key.toDouble() + 1,
-                entry.value,
-              ); // x values are 1-8
-            }).toList();
+          return FlSpot(
+            entry.key.toDouble() + 1,
+            entry.value,
+          );
+        }).toList();
 
-        return Container(
-          color: Colors.lightBlue[100],
-          padding: const EdgeInsets.all(16.0),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                const Text(
-                  'Welcome to Home Page',
-                  style: TextStyle(fontSize: 24),
-                ),
-                const SizedBox(height: 20),
-                Text("Data = $spektrumDataIntVal"),
-                const SizedBox(height: 20),
-                SizedBox(
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.0), // Add border radius
+              ),
+              child: Center(
+                child: SizedBox(
                   height: 300,
                   width: double.infinity,
                   child: LineChart(
@@ -92,7 +86,6 @@ class HomePageContent extends StatelessWidget {
                           ),
                         ),
                       ),
-
                       borderData: FlBorderData(
                         show: true,
                         border: Border.all(
@@ -143,9 +136,40 @@ class HomePageContent extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+            ),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 16.0, right: 8.0),
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: const Center(
+                      child: Text("Suhu"),
+                    ),
+                  ),
+                ),
+                 Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 16.0, left: 8.0),
+                    padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: const Center(
+                      child: Text("Lux"),
+                    ),
+                  ),
+                ),
               ],
             ),
-          ),
+          ],
         );
       },
     );
