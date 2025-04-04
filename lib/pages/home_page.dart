@@ -65,7 +65,7 @@ class HomePageContent extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10.0),
                 boxShadow: [ // Added boxShadow
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Color.fromARGB(50, 0, 0, 0),
                     spreadRadius: 2,
                     blurRadius: 5,
                     offset: const Offset(0, 3),
@@ -76,7 +76,7 @@ class HomePageContent extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.cloud,
+                    Icons.whatshot,
                     color: Colors.white,
                     size: 24.0,
                   ),
@@ -99,7 +99,7 @@ class HomePageContent extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10.0),
                 boxShadow: [ // Added boxShadow
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: const Color.fromARGB(50, 0, 0, 0),
                     spreadRadius: 2,
                     blurRadius: 5,
                     offset: const Offset(0, 3),
@@ -143,7 +143,7 @@ class HomePageContent extends StatelessWidget {
                         LineChartBarData(
                           spots: chartData,
                           isCurved: true,
-                          barWidth: 3,
+                          barWidth: 2,
                           color: Colors.black,
                           dotData: const FlDotData(show: true),
                           belowBarData: BarAreaData(
@@ -192,15 +192,22 @@ class HomePageContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10.0),
                       boxShadow: [ // Added boxShadow
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: const Color.fromARGB(50, 0, 0, 0),
                           spreadRadius: 2,
                           blurRadius: 5,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Text("Suhu"),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.thermostat
+                        ),
+                        const Text("Suhu"),
+                        const Text("28 C")
+                      ],
                     ),
                   ),
                 ),
@@ -213,15 +220,22 @@ class HomePageContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10.0),
                       boxShadow: [ // Added boxShadow
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: const Color.fromARGB(50, 0, 0, 0),
                           spreadRadius: 2,
                           blurRadius: 5,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Text("Lux"),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.brightness_medium
+                        ),
+                        const Text("Lux"),
+                        const Text("100 L")
+                      ],
                     ),
                   ),
                 ),
