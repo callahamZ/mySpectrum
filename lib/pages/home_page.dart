@@ -11,7 +11,15 @@ class HomePageContent extends StatelessWidget {
   Widget bottomChartAxisLabel(double value, TitleMeta meta) {
     final xAxisLabels = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"];
     final arrIndex = value.toInt() - 1;
-    return SideTitleWidget(meta: meta, child: Text(xAxisLabels[arrIndex]));
+    return SideTitleWidget(
+      meta: meta,
+      child: Text(
+        xAxisLabels[arrIndex],
+        style: TextStyle(
+          fontSize: 13
+        ),
+      )
+    );
   }
 
   @override
@@ -55,7 +63,8 @@ class HomePageContent extends StatelessWidget {
           );
         }).toList();
 
-        return Column(
+        return SingleChildScrollView(
+        child: Column(
           children: [
             Container(
               margin: const EdgeInsets.all(16.0),
@@ -203,10 +212,20 @@ class HomePageContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(
-                          Icons.thermostat
+                          Icons.thermostat,
+                          color: Colors.blueAccent,
                         ),
-                        const Text("Suhu"),
-                        const Text("28 C")
+                        const Text(
+                          " 28° C",
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                        const Text(
+                          " Suhu",
+                          style: TextStyle(color: Color.fromARGB(255, 85, 85, 85)),
+                        )
                       ],
                     ),
                   ),
@@ -231,10 +250,20 @@ class HomePageContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(
-                          Icons.brightness_medium
+                          Icons.brightness_medium,
+                          color: Colors.blue,
                         ),
-                        const Text("Lux"),
-                        const Text("100 L")
+                        const Text(
+                          " 142 Lux",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22
+                          ),  
+                        ),
+                        const Text(
+                          " Cahaya",
+                          style: TextStyle(color: Color.fromARGB(255, 85, 85, 85)),
+                        )
                       ],
                     ),
                   ),
@@ -242,6 +271,7 @@ class HomePageContent extends StatelessWidget {
               ],
             ),
           ],
+        ),
         );
       },
     );
