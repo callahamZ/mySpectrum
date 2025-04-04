@@ -77,7 +77,6 @@ class HomePageContent extends StatelessWidget {
                   color: Colors.green,
                   borderRadius: BorderRadius.circular(10.0),
                   boxShadow: [
-                    // Added boxShadow
                     BoxShadow(
                       color: Color.fromARGB(50, 0, 0, 0),
                       spreadRadius: 2,
@@ -108,7 +107,6 @@ class HomePageContent extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10.0),
                   boxShadow: [
-                    // Added boxShadow
                     BoxShadow(
                       color: const Color.fromARGB(50, 0, 0, 0),
                       spreadRadius: 2,
@@ -206,7 +204,6 @@ class HomePageContent extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10.0),
                         boxShadow: [
-                          // Added boxShadow
                           BoxShadow(
                             color: const Color.fromARGB(50, 0, 0, 0),
                             spreadRadius: 2,
@@ -251,7 +248,6 @@ class HomePageContent extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10.0),
                         boxShadow: [
-                          // Added boxShadow
                           BoxShadow(
                             color: const Color.fromARGB(50, 0, 0, 0),
                             spreadRadius: 2,
