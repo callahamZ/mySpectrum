@@ -6,7 +6,9 @@ import 'package:spectrumapp/pages/navigator.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // your firebase_options.dart file
+    options:
+        DefaultFirebaseOptions
+            .currentPlatform, // your firebase_options.dart file
   );
   runApp(const MyApp());
 }
