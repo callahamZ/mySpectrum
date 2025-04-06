@@ -35,18 +35,15 @@ class HomePageContent extends StatelessWidget {
         if (rootData != null) {
           try {
             Map<dynamic, dynamic>? spektrumData = rootData["sensorSpektrum"];
-            if(spektrumData != null){
+            if (spektrumData != null) {
               for (int i = 1; i <= 8; i++) {
                 String key = 'F$i';
                 if (spektrumData.containsKey(key)) {
-                  double value = double.parse(
-                    spektrumData[key].toString(),
-                  );
+                  double value = double.parse(spektrumData[key].toString());
                   spektrumDataIntVal.add(value);
                 }
               }
             }
-
           } catch (e) {
             print("Error processing data: $e");
           }

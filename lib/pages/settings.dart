@@ -92,100 +92,111 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _refreshSerialPortList,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+    return SingleChildScrollView(
+      child: Container(
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               "Serial Connection",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.0),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromARGB(50, 0, 0, 0),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Available Ports",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            new Divider(thickness: 2,),
+                            FutureBuilder<List<UsbDevice>>(
+                              future: _serialPortListFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const Text("Loading...");
+                                } else if (snapshot.hasError) {
+                                  return Text('Error: ${snapshot.error}');
+                                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                  final serialPortList = snapshot.data!;
+                                  final device = serialPortList[0];
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(device.productName ?? "unknown"),
+                                      Text("--> ${device.deviceName}"),
+                                    ],
+                                  );
+                                } else {
+                                  return const Text("None");
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: _refreshSerialPortList,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Center(child: Icon(Icons.refresh, color: Colors.white)),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             Container(
-              margin: EdgeInsets.only(top: 8),
-              padding: EdgeInsets.only(top: 8, bottom: 16, left: 16, right: 16),
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 8, bottom: 16, left: 16, right: 16),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10.0),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: Color.fromARGB(50, 0, 0, 0),
                     spreadRadius: 2,
                     blurRadius: 5,
-                    offset: const Offset(0, 3),
+                    offset: Offset(0, 3),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Available Ports",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Divider(),
-                  FutureBuilder<List<UsbDevice>>(
-                    future: _serialPortListFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Text("Loading...");
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      } else if (snapshot.hasData &&
-                          snapshot.data!.isNotEmpty) {
-                        final serialPortList = snapshot.data!;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              serialPortList[0].productName ?? 'Unknown Device',
-                            ),
-                            Text(
-                              "--> ${serialPortList[0].deviceName}" ??
-                                  'Unknown Port',
-                            ),
-                          ],
-                        );
-                      } else {
-                        return Text("None");
-                      }
-                    },
-                  ),
-                ],
-              ),
+              child: const Text("Baud Rate"),
             ),
-
-            SizedBox(height: 100),
-            FutureBuilder<List<UsbDevice>>(
-              future: _serialPortListFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const CircularProgressIndicator();
-                } else if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
-                } else if (snapshot.hasData) {
-                  final serialPortList = snapshot.data!;
-                  return Text(
-                    'Serial Ports: ${serialPortList.map((device) => device.productName).join(', ')}',
-                  );
-                } else {
-                  return const Text('No serial ports found.');
-                }
-              },
-            ),
-            ElevatedButton(
-              onPressed: _connectToSerial,
-              child: const Text('Connect'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _sendData(Uint8List.fromList([0x10, 0x00]));
-              },
-              child: const Text("Send Data"),
-            ),
+            const SizedBox(height: 100),
           ],
         ),
       ),

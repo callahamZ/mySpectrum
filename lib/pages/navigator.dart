@@ -18,7 +18,7 @@ class HomePageState extends State<HomePage> {
     HomePageContent(),
     CompareModePage(),
     DataRecordPage(),
-    SettingsPage()
+    SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -54,10 +54,7 @@ class HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home), 
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.compare),
             label: 'Compare Mode',
