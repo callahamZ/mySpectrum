@@ -11,7 +11,9 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late Future<List<UsbDevice>> _serialPortListFuture;
-  UsbPort? _serialPort; // Store the opened port
+  UsbPort? _serialPort;
+  String? _selectedBaudRate = '115200';
+  final List<String> _baudRates = ['9600', '115200', '19200'];
 
   @override
   void initState() {
@@ -48,12 +50,15 @@ class _SettingsPageState extends State<SettingsPage> {
       await _serialPort!.setDTR(true);
       await _serialPort!.setRTS(true);
 
-      _serialPort!.setPortParameters(
-        115200,
-        UsbPort.DATABITS_8,
-        UsbPort.STOPBITS_1,
-        UsbPort.PARITY_NONE,
-      );
+      if (_serialPort != null && _selectedBaudRate != null) {
+        int baudRate = int.parse(_selectedBaudRate!);
+        _serialPort!.setPortParameters(
+          baudRate,
+          UsbPort.DATABITS_8,
+          UsbPort.STOPBITS_1,
+          UsbPort.PARITY_NONE,
+        );
+      }
 
       // Listen for incoming data (optional)
       _serialPort!.inputStream?.listen((Uint8List event) {
@@ -68,25 +73,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error connecting: $e')));
-    }
-  }
-
-  Future<void> _sendData(Uint8List data) async {
-    if (_serialPort == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Serial port is not open.')));
-      return;
-    }
-    try {
-      await _serialPort!.write(data);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Data sent.')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error sending data: $e')));
     }
   }
 
@@ -108,7 +94,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 Expanded(
                   flex: 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10.0),
@@ -123,53 +113,68 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Available Ports",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            new Divider(thickness: 2,),
-                            FutureBuilder<List<UsbDevice>>(
-                              future: _serialPortListFuture,
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const Text("Loading...");
-                                } else if (snapshot.hasError) {
-                                  return Text('Error: ${snapshot.error}');
-                                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                  final serialPortList = snapshot.data!;
-                                  final device = serialPortList[0];
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(device.productName ?? "unknown"),
-                                      Text("--> ${device.deviceName}"),
-                                    ],
-                                  );
-                                } else {
-                                  return const Text("None");
-                                }
+                        Expanded(
+                          flex: 8,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Available Ports",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Divider(),
+                              FutureBuilder<List<UsbDevice>>(
+                                future: _serialPortListFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Text("Loading...");
+                                  } else if (snapshot.hasError) {
+                                    return Text('Error: ${snapshot.error}');
+                                  } else if (snapshot.hasData &&
+                                      snapshot.data!.isNotEmpty) {
+                                    final serialPortList = snapshot.data!;
+                                    final device = serialPortList[0];
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(device.productName ?? "unknown"),
+                                        Text("--> ${device.deviceName}"),
+                                      ],
+                                    );
+                                  } else {
+                                    return const Text("None");
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: GestureDetector(
+                            onTap: _refreshSerialPortList,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return Container(
+                                  padding: const EdgeInsets.all(10),
+                                  margin: EdgeInsets.only(left: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.refresh,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                );
                               },
                             ),
-                          ],
-                        ),
-                        GestureDetector(
-                          onTap: _refreshSerialPortList,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Center(child: Icon(Icons.refresh, color: Colors.white)),
-                              );
-                            },
                           ),
                         ),
                       ],
@@ -178,9 +183,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ],
             ),
+
+            Container(
+              margin: EdgeInsets.only(left: 8, top: 4),
+              child: Text(
+                "*Koneksi OTG harus diaktifkan di pengaturan smartphone",
+                style: TextStyle(fontSize: 10),
+              ),
+            ),
+
             Container(
               margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.only(top: 8, bottom: 16, left: 16, right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -194,9 +208,51 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              child: const Text("Baud Rate"),
+              child: Row(
+                children: [
+                  Text(
+                    "Baud Rate :",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      value: _selectedBaudRate,
+                      isExpanded: true,
+                      items:
+                          _baudRates.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedBaudRate = newValue!;
+                        });
+                      },
+                      hint: const Text("Select Baud Rate"),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 100),
+
+            ElevatedButton(
+              onPressed: _connectToSerial,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white, // Background color
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0), // Border radius
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
+              child: Text("Connect", style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
       ),
