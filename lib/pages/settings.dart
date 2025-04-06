@@ -97,7 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     margin: EdgeInsets.only(top: 8),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 8,
+                      vertical: 10,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -193,7 +193,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             Container(
-              margin: const EdgeInsets.only(top: 8),
+              margin: const EdgeInsets.symmetric(vertical: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               width: double.infinity,
               decoration: BoxDecoration(
@@ -251,7 +251,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   vertical: 12,
                 ),
               ),
-              child: Text("Connect", style: TextStyle(color: Colors.white)),
+              child: Text(
+                "Connect",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
