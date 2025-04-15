@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:spectrumapp/services/serial_service.dart';
 import 'package:usb_serial/usb_serial.dart';
 
 class HomePageContent extends StatefulWidget {
@@ -15,60 +16,24 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   final DatabaseReference spektrumDatabase = FirebaseDatabase.instance.ref();
   bool isFirebaseMode = true;
-  UsbPort? _serialPort;
   List<double> _serialSpectrumData = List.filled(8, 0.0);
   double _serialTemperature = 0.0;
   double _serialLux = 0.0;
 
+  final SerialService _serialService = SerialService(); // Get the singleton instance
+
   @override
   void initState() {
     super.initState();
-    _initSerial();
+    _serialService.onDataReceived = _updateSerialData;
   }
 
-  Future<void> _initSerial() async {
-  List<UsbDevice> devices = await UsbSerial.listDevices();
-  if (devices.isNotEmpty) {
-    _serialPort = await devices[0].create();
-    await _serialPort!.open();
-
-    _serialPort!.inputStream?.listen((Uint8List event) {
-      if (!isFirebaseMode) {
-        _processSerialData(event);
-      }
+  void _updateSerialData(List<double> spektrumData, double temperature, double lux) {
+    setState(() {
+      _serialService.serialSpectrumData = spektrumData;
+      _serialService.serialTemperature = temperature;
+      _serialService.serialLux = lux;
     });
-  } else {
-    // Show a snackbar if no devices are found
-    if (context.mounted){ //validate context before showing snackbar.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No USB devices found.'),
-          duration: Duration(seconds: 3), // Adjust duration as needed
-        ),
-      );
-    }
-  }
-}
-
-  void _processSerialData(Uint8List data) {
-    String dataString = String.fromCharCodes(data);
-    List<String> values = dataString.split(',');
-
-    if (values.length >= 10) {
-      try {
-        List<double> spektrumData = values.sublist(0, 8).map(double.parse).toList();
-        double temperature = double.parse(values[8]);
-        double lux = double.parse(values[9]);
-
-        setState(() {
-          _serialSpectrumData = spektrumData;
-          _serialTemperature = temperature;
-          _serialLux = lux;
-        });
-      } catch (e) {
-        print("Error parsing serial data: $e");
-      }
-    }
   }
 
   Widget bottomChartAxisLabel(double value, TitleMeta meta) {
@@ -93,7 +58,8 @@ class _HomePageContentState extends State<HomePageContent> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+          } else if (snapshot.hasData &&
+              snapshot.data!.snapshot.value != null) {
             rootData = snapshot.data!.snapshot.value as Map<dynamic, dynamic>?;
           }
 
@@ -124,9 +90,10 @@ class _HomePageContentState extends State<HomePageContent> {
             luxVal = rootData!["sensorCahaya"]["Lux"].toString();
           }
 
-          List<FlSpot> chartData = spektrumDataIntVal.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble() + 1, entry.value);
-          }).toList();
+          List<FlSpot> chartData =
+              spektrumDataIntVal.asMap().entries.map((entry) {
+                return FlSpot(entry.key.toDouble() + 1, entry.value);
+              }).toList();
 
           return _buildContent(chartData, tempVal, luxVal);
         },
@@ -134,11 +101,12 @@ class _HomePageContentState extends State<HomePageContent> {
     } else {
       // Use serial data directly
       return _buildContent(
-          _serialSpectrumData.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble() + 1, entry.value);
-          }).toList(),
-          _serialTemperature.toString(),
-          _serialLux.toString());
+        _serialSpectrumData.asMap().entries.map((entry) {
+          return FlSpot(entry.key.toDouble() + 1, entry.value);
+        }).toList(),
+        _serialTemperature.toString(),
+        _serialLux.toString(),
+      );
     }
   }
 
@@ -150,6 +118,7 @@ class _HomePageContentState extends State<HomePageContent> {
             onTap: () {
               setState(() {
                 isFirebaseMode = !isFirebaseMode;
+
               });
             },
             child: Container(
@@ -170,8 +139,11 @@ class _HomePageContentState extends State<HomePageContent> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(isFirebaseMode ? Icons.wifi : Icons.cable,
-                      color: Colors.white, size: 24.0),
+                  Icon(
+                    isFirebaseMode ? Icons.wifi : Icons.cable,
+                    color: Colors.white,
+                    size: 24.0,
+                  ),
                   const SizedBox(width: 8.0),
                   Text(
                     isFirebaseMode ? "Firebase Mode" : "Serial Mode",
@@ -298,10 +270,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.thermostat,
-                        color: Colors.blueAccent,
-                      ),
+                      const Icon(Icons.thermostat, color: Colors.blueAccent),
                       Text(
                         " $tempVal° C",
                         style: const TextStyle(
@@ -342,10 +311,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.brightness_medium,
-                        color: Colors.blue,
-                      ),
+                      const Icon(Icons.brightness_medium, color: Colors.blue),
                       Text(
                         " $luxVal Lux",
                         style: const TextStyle(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spectrumapp/services/serial_service.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'dart:typed_data';
 
@@ -14,6 +15,7 @@ class _SettingsPageState extends State<SettingsPage> {
   UsbPort? _serialPort;
   String? _selectedBaudRate = '115200';
   final List<String> _baudRates = ['9600', '115200', '19200'];
+  final SerialService _serialService = SerialService();
 
   @override
   void initState() {
@@ -28,51 +30,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _connectToSerial() async {
-    List<UsbDevice> devices = await UsbSerial.listDevices();
-    if (devices.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No USB devices found.')));
-      return;
-    }
-
     try {
-      _serialPort = await devices[0].create(); // Connect to the first device
-
-      bool openResult = await _serialPort!.open();
-      if (!openResult) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open serial port.')),
-        );
-        return;
-      }
-
-      await _serialPort!.setDTR(true);
-      await _serialPort!.setRTS(true);
-
-      if (_serialPort != null && _selectedBaudRate != null) {
-        int baudRate = int.parse(_selectedBaudRate!);
-        _serialPort!.setPortParameters(
-          baudRate,
-          UsbPort.DATABITS_8,
-          UsbPort.STOPBITS_1,
-          UsbPort.PARITY_NONE,
-        );
-      }
-
-      // Listen for incoming data (optional)
-      _serialPort!.inputStream?.listen((Uint8List event) {
-        print('Received data: $event');
-        // Handle incoming data here
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Serial port connected.')));
+      await _serialService.connectToSerial(_selectedBaudRate!);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Serial port connected.')));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error connecting: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error connecting: $e')));
     }
   }
 
