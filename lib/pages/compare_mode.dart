@@ -134,7 +134,7 @@ class CompareModePage extends StatelessWidget {
                         minX: 1,
                         maxX: 8,
                         minY: 0,
-                        maxY: 1000,
+                        maxY: 5000,
                         lineBarsData: [
                           LineChartBarData(
                             spots: chartData,
