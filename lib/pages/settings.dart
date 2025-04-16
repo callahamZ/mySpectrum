@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:usb_serial/usb_serial.dart';
-import 'dart:typed_data';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,7 +11,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late Future<List<UsbDevice>> _serialPortListFuture;
-  UsbPort? _serialPort;
   String? _selectedBaudRate = '115200';
   final List<String> _baudRates = ['9600', '115200', '19200'];
   final SerialService _serialService = SerialService();

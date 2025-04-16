@@ -13,9 +13,43 @@ class HomePage extends StatefulWidget {
 
 class HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  bool isFirebaseMode = true;
+
+  void toggleFirebaseMode() {
+    setState(() {
+      isFirebaseMode = !isFirebaseMode;
+      print("Status navigator : $isFirebaseMode");
+      _updateHomePageContent();
+    });
+  }
+
+    void _updateHomePageContent() {
+    _widgetOptions[0] = HomePageContent(
+      key: ValueKey(isFirebaseMode),
+      isFirebaseMode: isFirebaseMode,
+      toggleFirebaseMode: toggleFirebaseMode,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _updateHomePageContent(); // Initialize HomePageContent
+  }
+
+  @override
+  void didUpdateWidget(HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateHomePageContent(); // Update HomePageContent on widget update
+  }
+
 
   late final List<Widget> _widgetOptions = <Widget>[
-    HomePageContent(),
+    HomePageContent(
+      key: ValueKey(isFirebaseMode),
+      isFirebaseMode: isFirebaseMode,
+      toggleFirebaseMode: toggleFirebaseMode,
+    ),
     CompareModePage(),
     DataRecordPage(),
     SettingsPage(),

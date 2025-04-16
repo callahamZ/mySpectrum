@@ -11,11 +11,6 @@ class SerialService {
   SerialService._internal();
 
   UsbPort? serialPort;
-  List<double> serialSpectrumData = List.filled(8, 0.0);
-  double serialTemperature = 0.0;
-  double serialLux = 0.0;
-
-  
   Function(List<double>, double, double)? onDataReceived;
 
   Future<void> connectToSerial(String baudRate) async {
@@ -31,8 +26,8 @@ class SerialService {
         throw Exception('Failed to open serial port.');
       }
 
-      await serialPort!.setDTR(true);
-      await serialPort!.setRTS(true);
+      await serialPort!.setDTR(false);
+      await serialPort!.setRTS(false);
 
       int baudRateInt = int.parse(baudRate);
       serialPort!.setPortParameters(
@@ -55,22 +50,22 @@ class SerialService {
     String dataString = String.fromCharCodes(data);
     List<String> values = dataString.split(',');
 
-    if (values.length >= 10) {
-      try {
-        List<double> spektrumData = values.sublist(0, 8).map(double.parse).toList();
-        double temperature = double.parse(values[8]);
-        double lux = double.parse(values[9]);
+    if (values.isNotEmpty && values[0] == '@DataCapture') {
+      if (values.length >= 11) {
+        try {
+          List<double> spektrumData = values.sublist(1, 9).map(double.parse).toList();
+          double temperature = double.parse(values[9]);
+          double lux = double.parse(values[10]);
 
-        serialSpectrumData = spektrumData;
-        serialTemperature = temperature;
-        serialLux = lux;
-
-        if (onDataReceived != null) {
-          onDataReceived!(spektrumData, temperature, lux);
+          if (onDataReceived != null) {
+            onDataReceived!(spektrumData, temperature, lux);
+          }
+        } catch (e) {
+          print("Error parsing serial data: $e");
         }
-      } catch (e) {
-        print("Error parsing serial data: $e");
       }
+    } else {
+      print("Received data is not a DataCapture: $dataString");
     }
   }
 

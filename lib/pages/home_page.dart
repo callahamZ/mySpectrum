@@ -1,13 +1,17 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
-import 'package:usb_serial/usb_serial.dart';
 
 class HomePageContent extends StatefulWidget {
-  HomePageContent({super.key});
+  final bool isFirebaseMode;
+  final VoidCallback toggleFirebaseMode;
+
+  HomePageContent({
+    super.key,
+    required this.isFirebaseMode,
+    required this.toggleFirebaseMode,
+  });
 
   @override
   State<HomePageContent> createState() => _HomePageContentState();
@@ -15,12 +19,12 @@ class HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<HomePageContent> {
   final DatabaseReference spektrumDatabase = FirebaseDatabase.instance.ref();
-  bool isFirebaseMode = true;
   List<double> _serialSpectrumData = List.filled(8, 0.0);
   double _serialTemperature = 0.0;
   double _serialLux = 0.0;
 
-  final SerialService _serialService = SerialService(); // Get the singleton instance
+  final SerialService _serialService =
+      SerialService(); // Get the singleton instance
 
   @override
   void initState() {
@@ -28,12 +32,18 @@ class _HomePageContentState extends State<HomePageContent> {
     _serialService.onDataReceived = _updateSerialData;
   }
 
-  void _updateSerialData(List<double> spektrumData, double temperature, double lux) {
-    setState(() {
-      _serialService.serialSpectrumData = spektrumData;
-      _serialService.serialTemperature = temperature;
-      _serialService.serialLux = lux;
-    });
+  void _updateSerialData(
+    List<double> spektrumData,
+    double temperature,
+    double lux,
+  ) {
+    if (!widget.isFirebaseMode) {
+      setState(() {
+        _serialSpectrumData = spektrumData;
+        _serialTemperature = temperature;
+        _serialLux = lux;
+      });
+    }
   }
 
   Widget bottomChartAxisLabel(double value, TitleMeta meta) {
@@ -47,7 +57,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (isFirebaseMode) {
+    print("Home flag :");
+    print(widget.isFirebaseMode);
+    if (widget.isFirebaseMode) {
       return StreamBuilder<DatabaseEvent>(
         stream: spektrumDatabase.onValue,
         builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
@@ -115,17 +127,12 @@ class _HomePageContentState extends State<HomePageContent> {
       child: Column(
         children: [
           GestureDetector(
-            onTap: () {
-              setState(() {
-                isFirebaseMode = !isFirebaseMode;
-
-              });
-            },
+            onTap: widget.toggleFirebaseMode,
             child: Container(
               margin: const EdgeInsets.all(16.0),
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
-                color: isFirebaseMode ? Colors.green : Colors.blue,
+                color: widget.isFirebaseMode ? Colors.green : Colors.blue,
                 borderRadius: BorderRadius.circular(10.0),
                 boxShadow: const [
                   BoxShadow(
@@ -140,13 +147,13 @@ class _HomePageContentState extends State<HomePageContent> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    isFirebaseMode ? Icons.wifi : Icons.cable,
+                    widget.isFirebaseMode ? Icons.wifi : Icons.cable,
                     color: Colors.white,
                     size: 24.0,
                   ),
                   const SizedBox(width: 8.0),
                   Text(
-                    isFirebaseMode ? "Firebase Mode" : "Serial Mode",
+                    widget.isFirebaseMode ? "Firebase Mode" : "Serial Mode",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
