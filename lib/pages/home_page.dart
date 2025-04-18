@@ -57,8 +57,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    print("Home flag :");
-    print(widget.isFirebaseMode);
     if (widget.isFirebaseMode) {
       return StreamBuilder<DatabaseEvent>(
         stream: spektrumDatabase.onValue,
@@ -338,6 +336,8 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
             ],
           ),
+
+          Container(child: Text("$_serialSpectrumData")),
         ],
       ),
     );

@@ -18,7 +18,6 @@ class HomePageState extends State<HomePage> {
   void toggleFirebaseMode() {
     setState(() {
       isFirebaseMode = !isFirebaseMode;
-      print("Status navigator : $isFirebaseMode");
       _updateHomePageContent();
     });
   }
