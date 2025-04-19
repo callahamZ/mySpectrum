@@ -23,13 +23,15 @@ class _HomePageContentState extends State<HomePageContent> {
   double _serialTemperature = 0.0;
   double _serialLux = 0.0;
 
-  final SerialService _serialService =
-      SerialService(); // Get the singleton instance
+  final SerialService _serialService = SerialService();
 
   @override
   void initState() {
     super.initState();
-    _serialService.onDataReceived = _updateSerialData;
+    print("initState- isFirebaseMode: ${widget.isFirebaseMode}");
+    if (!widget.isFirebaseMode) {
+      _serialService.onDataReceived = _updateSerialData;
+    }
   }
 
   void _updateSerialData(
@@ -37,13 +39,22 @@ class _HomePageContentState extends State<HomePageContent> {
     double temperature,
     double lux,
   ) {
-    if (!widget.isFirebaseMode) {
+    if (mounted && !widget.isFirebaseMode) {
       setState(() {
         _serialSpectrumData = spektrumData;
         _serialTemperature = temperature;
         _serialLux = lux;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    if (!widget.isFirebaseMode) {
+      print("Resetting onDataReceived");
+      _serialService.onDataReceived = null;
+    }
+    super.dispose();
   }
 
   Widget bottomChartAxisLabel(double value, TitleMeta meta) {
@@ -336,8 +347,6 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
             ],
           ),
-
-          Container(child: Text("$_serialSpectrumData")),
         ],
       ),
     );

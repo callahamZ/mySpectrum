@@ -24,9 +24,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _updateRawSerialDataDisplay(String rawData) {
+    if (!mounted) return;
     setState(() {
       _rawSerialData = rawData;
     });
+  }
+
+  @override
+  void dispose() {
+    // Remove the callback when the widget is disposed
+    _serialService.onRawDataReceived = null;
+    super.dispose();
   }
 
   Future<void> _refreshSerialPortList() async {
@@ -38,9 +46,13 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _connectToSerial() async {
     try {
       await _serialService.connectToSerial(_selectedBaudRate!);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Serial port connected.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Serial port connected.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error connecting: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error connecting: $e')));
     }
   }
 

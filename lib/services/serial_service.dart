@@ -47,19 +47,22 @@ class SerialService {
         Uint8List.fromList([13, 10]), // Assuming \r\n termination
       );
 
-      _subscription = _transaction!.stream.listen((String line) {
-        if (onRawDataReceived != null) {
-          onRawDataReceived!(line); // Send raw line to SettingsPage
-        }
-        _processSerialData(line);
-      }, onError: (error) {
-        print("Serial stream error: $error");
-        disconnectSerial();
-      }, onDone: () {
-        print("Serial stream done");
-        disconnectSerial();
-      });
-
+      _subscription = _transaction!.stream.listen(
+        (String line) {
+          if (onRawDataReceived != null) {
+            onRawDataReceived!(line); // Send raw line to SettingsPage
+          }
+          _processSerialData(line);
+        },
+        onError: (error) {
+          print("Serial stream error: $error");
+          disconnectSerial();
+        },
+        onDone: () {
+          print("Serial stream done");
+          disconnectSerial();
+        },
+      );
     } catch (e) {
       disconnectSerial();
       rethrow;
@@ -71,9 +74,10 @@ class SerialService {
       List<String> values = rawData.substring('@DataCap,'.length).split(',');
       if (values.length == 10) {
         try {
-          List<double> spektrumData = values.sublist(0, 8).map(double.parse).toList();
-          double temperature = double.parse(values[8]);
-          double lux = double.parse(values[9]);
+          List<double> spektrumData =
+              values.sublist(0, 8).map(double.parse).toList();
+          double lux = double.parse(values[8]);
+          double temperature = double.parse(values[9]);
 
           if (onDataReceived != null) {
             onDataReceived!(spektrumData, temperature, lux);

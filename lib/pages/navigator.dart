@@ -18,46 +18,33 @@ class HomePageState extends State<HomePage> {
   void toggleFirebaseMode() {
     setState(() {
       isFirebaseMode = !isFirebaseMode;
-      _updateHomePageContent();
+      print("isFirebase is changed");
     });
   }
-
-    void _updateHomePageContent() {
-    _widgetOptions[0] = HomePageContent(
-      key: ValueKey(isFirebaseMode),
-      isFirebaseMode: isFirebaseMode,
-      toggleFirebaseMode: toggleFirebaseMode,
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _updateHomePageContent(); // Initialize HomePageContent
-  }
-
-  @override
-  void didUpdateWidget(HomePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _updateHomePageContent(); // Update HomePageContent on widget update
-  }
-
-
-  late final List<Widget> _widgetOptions = <Widget>[
-    HomePageContent(
-      key: ValueKey(isFirebaseMode),
-      isFirebaseMode: isFirebaseMode,
-      toggleFirebaseMode: toggleFirebaseMode,
-    ),
-    CompareModePage(),
-    DataRecordPage(),
-    SettingsPage(),
-  ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Widget _getBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return HomePageContent(
+          key: ValueKey(isFirebaseMode),
+          isFirebaseMode: isFirebaseMode,
+          toggleFirebaseMode: toggleFirebaseMode,
+        );
+      case 1:
+        return CompareModePage();
+      case 2:
+        return DataRecordPage();
+      case 3:
+        return SettingsPage();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
@@ -83,7 +70,7 @@ class HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
+      body: _getBody(), // Use a function to dynamically build the body
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
