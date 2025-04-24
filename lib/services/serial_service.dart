@@ -16,7 +16,8 @@ class SerialService {
   StreamSubscription<String>? _subscription;
   Transaction<String>? _transaction;
   Function(List<double>, double, double)? onDataReceived;
-  Function(String)? onRawDataReceived; // New callback for raw data
+  Function(String)? onRawDataReceived;
+  bool serialStatus = false;
 
   Future<void> connectToSerial(String baudRate) async {
     List<UsbDevice> devices = await UsbSerial.listDevices();
@@ -41,6 +42,8 @@ class SerialService {
         UsbPort.STOPBITS_1,
         UsbPort.PARITY_NONE,
       );
+
+      serialStatus = true;
 
       _transaction = Transaction.stringTerminated(
         serialPort!.inputStream as Stream<Uint8List>,
@@ -89,7 +92,7 @@ class SerialService {
         print("Received data has incorrect number of values: $rawData");
       }
     } else {
-      print("Received data does not start with @DataCapture: $rawData");
+      print("Received data does not start with @DataCap: $rawData");
     }
   }
 
@@ -106,5 +109,6 @@ class SerialService {
       await serialPort!.close();
       serialPort = null;
     }
+    serialStatus = false;
   }
 }

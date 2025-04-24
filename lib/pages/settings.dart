@@ -56,6 +56,20 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _disconnectFromSerial() async {
+    try {
+      await _serialService.disconnectSerial();
+      setState(() {});
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Serial port disconnected')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error disconnecting: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -219,9 +233,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             ElevatedButton(
-              onPressed: _connectToSerial,
+              onPressed:
+                  _serialService.serialStatus
+                      ? _disconnectFromSerial
+                      : _connectToSerial,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor:
+                    _serialService.serialStatus ? Colors.red : Colors.blue,
                 foregroundColor: Colors.white, // Background color
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.0), // Border radius
@@ -232,7 +250,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               child: Text(
-                "Connect",
+                _serialService.serialStatus ? "Disconnect" : "Connect",
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -66,6 +67,21 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
+  double _calculateMaxY(List<double> data) {
+    double maxY_Val = 1000.0;
+    if (data.isEmpty) return maxY_Val; // Default if no data
+
+    const maxList = [1000.0, 5000.0, 10000.0, 25000.0, 50000.0, 70000.0];
+    double maxValue = data.reduce(max);
+    for (var maxPoints in maxList) {
+      if (maxValue < maxPoints) {
+        maxY_Val = maxPoints;
+        break;
+      }
+    }
+    return maxY_Val;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isFirebaseMode) {
@@ -116,22 +132,30 @@ class _HomePageContentState extends State<HomePageContent> {
                 return FlSpot(entry.key.toDouble() + 1, entry.value);
               }).toList();
 
-          return _buildContent(chartData, tempVal, luxVal);
+          final maxYValue = _calculateMaxY(spektrumDataIntVal);
+
+          return _buildContent(chartData, tempVal, luxVal, maxY: maxYValue);
         },
       );
     } else {
-      // Use serial data directly
+      final maxYValue = _calculateMaxY(_serialSpectrumData);
       return _buildContent(
         _serialSpectrumData.asMap().entries.map((entry) {
           return FlSpot(entry.key.toDouble() + 1, entry.value);
         }).toList(),
         _serialTemperature.toString(),
         _serialLux.toString(),
+        maxY: maxYValue,
       );
     }
   }
 
-  Widget _buildContent(List<FlSpot> chartData, String tempVal, String luxVal) {
+  Widget _buildContent(
+    List<FlSpot> chartData,
+    String tempVal,
+    String luxVal, {
+    double maxY = 5000,
+  }) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -219,7 +243,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     minX: 1,
                     maxX: 8,
                     minY: 0,
-                    maxY: 5000,
+                    maxY: maxY,
                     lineBarsData: [
                       LineChartBarData(
                         spots: chartData,
