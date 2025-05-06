@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:spectrumapp/services/database_service.dart'; // Import your DatabaseHelper
+import 'package:spectrumapp/services/database_service.dart';
+import 'package:intl/intl.dart';
 
 class DataRecordPage extends StatefulWidget {
   const DataRecordPage({Key? key}) : super(key: key);
@@ -14,13 +15,23 @@ class _DataRecordPageState extends State<DataRecordPage> {
   @override
   void initState() {
     super.initState();
+    _loadMeasurements();
+  }
+
+  Future<void> _loadMeasurements() async {
     _measurementsFuture = DatabaseHelper.instance.getAllMeasurements();
+  }
+
+  Future<void> _deleteMeasurement(int id) async {
+    await DatabaseHelper.instance.deleteMeasurement(id);
+    _loadMeasurements();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Data Records')),
+      backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _measurementsFuture,
         builder: (context, snapshot) {
@@ -30,12 +41,86 @@ class _DataRecordPageState extends State<DataRecordPage> {
               itemCount: measurements.length,
               itemBuilder: (context, index) {
                 final measurement = measurements[index];
-                return ListTile(
-                  title: Text('Timestamp: ${measurement['timestamp']}'),
-                  subtitle: Text(
-                    'Temp: ${measurement['temperature']}, Lux: ${measurement['lux']}',
+                final spectrumValues =
+                    (measurement['spectrumData'] as String?)?.split(',') ?? [];
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 16.0,
                   ),
-                  // Add more details as needed
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10.0),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color.fromARGB(50, 0, 0, 0),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Timestamp: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(measurement['timestamp']))}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (spectrumValues.length >= 8)
+                              Row(
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('F1: ${spectrumValues[0]}'),
+                                      Text('F2: ${spectrumValues[1]}'),
+                                      Text('F3: ${spectrumValues[2]}'),
+                                      Text('F4: ${spectrumValues[3]}'),
+                                    ],
+                                  ),
+                                  SizedBox(width: 20),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('F5: ${spectrumValues[4]}'),
+                                      Text('F6: ${spectrumValues[5]}'),
+                                      Text('F7: ${spectrumValues[6]}'),
+                                      Text('F8: ${spectrumValues[7]}'),
+                                    ],
+                                  ),
+                                ],
+                              ),
+
+                            if (spectrumValues.length < 8 &&
+                                spectrumValues.isNotEmpty)
+                              Text(
+                                'Spectrum Data: ${measurement['spectrumData']}',
+                              ),
+                            if (spectrumValues.isEmpty)
+                              const Text('Spectrum Data: -'),
+                            Text('Temp: ${measurement['temperature']}° C'),
+                            Text('Lux: ${measurement['lux']}'),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          _deleteMeasurement(measurement['id']);
+                        },
+                      ),
+                    ],
+                  ),
                 );
               },
             );
