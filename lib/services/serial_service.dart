@@ -1,6 +1,7 @@
 import 'package:usb_serial/usb_serial.dart';
 import 'dart:typed_data';
 import 'package:usb_serial/transaction.dart';
+import 'database_service.dart';
 import 'dart:async';
 
 class SerialService {
@@ -81,6 +82,14 @@ class SerialService {
               values.sublist(0, 8).map(double.parse).toList();
           double lux = double.parse(values[8]);
           double temperature = double.parse(values[9]);
+
+          DatabaseHelper.instance.insertMeasurement(
+            timestamp: DateTime.now(),
+            spectrumData: spektrumData,
+            temperature: temperature,
+            lux: lux,
+            // firebaseData: null, // No Firebase data here
+          );
 
           if (onDataReceived != null) {
             onDataReceived!(spektrumData, temperature, lux);

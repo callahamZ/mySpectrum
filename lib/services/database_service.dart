@@ -15,6 +15,11 @@ class DatabaseHelper {
   static const columnLux = 'lux';
   static const columnFirebaseData = 'firebaseData';
 
+  Future<List<Map<String, dynamic>>> getAllMeasurements() async {
+    Database db = await instance.database;
+    return await db.query(table);
+  }
+
   // Make this a singleton class.
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();

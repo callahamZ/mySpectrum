@@ -14,20 +14,11 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedBaudRate = '115200';
   final List<String> _baudRates = ['9600', '115200', '19200'];
   final SerialService _serialService = SerialService();
-  String _rawSerialData = '';
 
   @override
   void initState() {
     super.initState();
     _refreshSerialPortList();
-    _serialService.onRawDataReceived = _updateRawSerialDataDisplay;
-  }
-
-  void _updateRawSerialDataDisplay(String rawData) {
-    if (!mounted) return;
-    setState(() {
-      _rawSerialData = rawData;
-    });
   }
 
   @override
@@ -257,17 +248,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 20), // Add some space below the button
-            const Text(
-              "Random Text Below Button",
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Raw Serial Data:",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Text(_rawSerialData), // Display the raw serial data
           ],
         ),
       ),

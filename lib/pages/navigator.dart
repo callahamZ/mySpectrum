@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spectrumapp/services/serial_service.dart';
 import 'data_record.dart';
 import 'settings.dart';
 import 'home_page.dart';
@@ -15,10 +16,20 @@ class HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool isFirebaseMode = true;
 
+  final SerialService _serialService = SerialService();
+
   void toggleFirebaseMode() {
     setState(() {
       isFirebaseMode = !isFirebaseMode;
-      print("isFirebase is changed");
+      if (!_serialService.serialStatus && !isFirebaseMode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No Serial Port Detected; Go to setting to set it up',
+            ),
+          ),
+        );
+      }
     });
   }
 
@@ -37,7 +48,11 @@ class HomePageState extends State<HomePage> {
           toggleFirebaseMode: toggleFirebaseMode,
         );
       case 1:
-        return CompareModePage();
+        return CompareModePage(
+          key: ValueKey(isFirebaseMode),
+          isFirebaseMode: isFirebaseMode,
+          toggleFirebaseMode: toggleFirebaseMode,
+        );
       case 2:
         return DataRecordPage();
       case 3:

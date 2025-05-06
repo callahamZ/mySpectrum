@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
+import 'package:spectrumapp/services/database_service.dart';
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -29,7 +30,6 @@ class _HomePageContentState extends State<HomePageContent> {
   @override
   void initState() {
     super.initState();
-    print("initState- isFirebaseMode: ${widget.isFirebaseMode}");
     if (!widget.isFirebaseMode) {
       _serialService.onDataReceived = _updateSerialData;
     }
@@ -126,6 +126,14 @@ class _HomePageContentState extends State<HomePageContent> {
           if (rootData?["sensorCahaya"]["Lux"] != null) {
             luxVal = rootData!["sensorCahaya"]["Lux"].toString();
           }
+
+          DatabaseHelper.instance.insertMeasurement(
+            timestamp: DateTime.now(),
+            spectrumData:
+                spektrumDataIntVal, // adjust according to your Firebase data structure
+            temperature: double.parse(tempVal),
+            lux: double.parse(luxVal),
+          );
 
           List<FlSpot> chartData =
               spektrumDataIntVal.asMap().entries.map((entry) {
