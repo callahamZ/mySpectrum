@@ -248,6 +248,13 @@ class _HomePageContentState extends State<HomePageContent> {
                         width: 2,
                       ),
                     ),
+                    lineTouchData: LineTouchData(
+                      handleBuiltInTouches: true,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (touchedSpot) => Colors.white,
+                        tooltipBorder: BorderSide(color: Colors.black),
+                      ),
+                    ),
                     minX: 1,
                     maxX: 8,
                     minY: 0,
