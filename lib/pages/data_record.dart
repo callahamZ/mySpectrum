@@ -28,10 +28,61 @@ class _DataRecordPageState extends State<DataRecordPage> {
     setState(() {});
   }
 
+  Future<void> _deleteAllMeasurements() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Confirm Delete',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Are you sure you want to delete all data? This action cannot be undone.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                await DatabaseHelper.instance.deleteAllMeasurements();
+                _loadMeasurements();
+                setState(() {});
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Delete All',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 233, 233, 233),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: const Text(
+          "Data Records",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.delete_forever),
+            onPressed: _deleteAllMeasurements,
+          ),
+        ],
+      ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _measurementsFuture,
         builder: (context, snapshot) {

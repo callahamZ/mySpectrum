@@ -1,10 +1,9 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
-import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/graph_framework.dart';
+import 'package:spectrumapp/services/firebase_streamer.dart';
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -27,7 +26,6 @@ class _HomePageContentState extends State<HomePageContent> {
   double _serialLux = 0.0;
 
   final SerialService _serialService = SerialService();
-  bool _isFirstBuild = true;
 
   @override
   void initState() {
@@ -63,65 +61,8 @@ class _HomePageContentState extends State<HomePageContent> {
   @override
   Widget build(BuildContext context) {
     if (widget.isFirebaseMode) {
-      return StreamBuilder<DatabaseEvent>(
-        stream: spektrumDatabase.onValue,
-        builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-          List<double> spektrumDataIntVal = [];
-          Map<dynamic, dynamic>? rootData;
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (snapshot.hasData &&
-              snapshot.data!.snapshot.value != null) {
-            rootData = snapshot.data!.snapshot.value as Map<dynamic, dynamic>?;
-          }
-
-          if (rootData != null) {
-            try {
-              Map<dynamic, dynamic>? spektrumData = rootData["sensorSpektrum"];
-              if (spektrumData != null) {
-                for (int i = 1; i <= 8; i++) {
-                  String key = 'F$i';
-                  if (spektrumData.containsKey(key)) {
-                    double value = double.parse(spektrumData[key].toString());
-                    spektrumDataIntVal.add(value);
-                  }
-                }
-              }
-            } catch (e) {
-              print("Error processing data: $e");
-            }
-          }
-
-          String tempVal = "N/A";
-          if (rootData?["sensorSuhu"]["Suhu"] != null) {
-            tempVal = rootData!["sensorSuhu"]["Suhu"].toString();
-          }
-
-          String luxVal = "N/A";
-          if (rootData?["sensorCahaya"]["Lux"] != null) {
-            luxVal = rootData!["sensorCahaya"]["Lux"].toString();
-          }
-
-          if (!_isFirstBuild) {
-            DatabaseHelper.instance.insertMeasurement(
-              timestamp: DateTime.now(),
-              spectrumData:
-                  spektrumDataIntVal, // adjust according to your Firebase data structure
-              temperature: double.parse(tempVal),
-              lux: double.parse(luxVal),
-            );
-          }
-
-          _isFirstBuild = false;
-
-          List<FlSpot> chartData =
-              spektrumDataIntVal.asMap().entries.map((entry) {
-                return FlSpot(entry.key.toDouble() + 1, entry.value);
-              }).toList();
-
+      return FirebaseStreamer(
+        builder: (context, chartData, tempVal, luxVal, {maxY}) {
           return _buildContent(chartData, tempVal, luxVal);
         },
       );

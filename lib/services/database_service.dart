@@ -25,6 +25,12 @@ class DatabaseHelper {
     return await db.delete(table, where: '$columnId = ?', whereArgs: [id]);
   }
 
+  // Add this function to delete all measurements
+  Future<int> deleteAllMeasurements() async {
+    Database db = await instance.database;
+    return await db.delete(table);
+  }
+
   // Make this a singleton class.
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
