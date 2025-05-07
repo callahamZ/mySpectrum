@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:spectrumapp/services/database_service.dart';
@@ -20,6 +21,7 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
+  final DatabaseReference spektrumDatabase = FirebaseDatabase.instance.ref();
   List<double> _serialSpectrumData = List.filled(8, 0.0);
   double _serialTemperature = 0.0;
   double _serialLux = 0.0;
@@ -221,7 +223,6 @@ class _HomePageContentState extends State<HomePageContent> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(chartData: chartData, maxY: maxY),
                 child: SpectrumChart(chartData: chartData, maxY: maxY),
               ),
             ),

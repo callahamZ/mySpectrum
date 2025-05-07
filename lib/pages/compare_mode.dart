@@ -207,7 +207,6 @@ class _CompareModePageState extends State<CompareModePage> {
                 height: 300,
                 width: double.infinity,
                 child: SpectrumChart(chartData: chartData, maxY: maxY),
-                child: SpectrumChart(chartData: chartData, maxY: maxY),
               ),
             ),
           ),
