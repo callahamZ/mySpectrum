@@ -1,13 +1,27 @@
 // graph_service.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 
 class SpectrumChart extends StatelessWidget {
   final List<FlSpot> chartData;
-  final double maxY;
 
-  const SpectrumChart({Key? key, required this.chartData, this.maxY = 5000})
-    : super(key: key);
+  const SpectrumChart({Key? key, required this.chartData}) : super(key: key);
+
+  double _calculateMaxY() {
+    if (chartData.isEmpty) return 1000.0; // Default if no data
+
+    List<double> yValues = chartData.map((spot) => spot.y).toList();
+    double maxValue = yValues.reduce(max);
+    const maxList = [1000.0, 5000.0, 10000.0, 25000.0, 50000.0, 70000.0];
+
+    for (var maxPoint in maxList) {
+      if (maxValue < maxPoint) {
+        return maxPoint;
+      }
+    }
+    return 70000.0; // Return the largest value in maxList if maxValue is larger.
+  }
 
   Widget bottomChartAxisLabel(double value, TitleMeta meta) {
     final xAxisLabels = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"];
@@ -20,6 +34,8 @@ class SpectrumChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double maxYValue = _calculateMaxY();
+
     return Center(
       child: SizedBox(
         height: 300,
@@ -53,13 +69,13 @@ class SpectrumChart extends StatelessWidget {
               handleBuiltInTouches: true,
               touchTooltipData: LineTouchTooltipData(
                 getTooltipColor: (touchedSpot) => Colors.white,
-                tooltipBorder: BorderSide(color: Colors.black),
+                tooltipBorder: const BorderSide(color: Colors.black),
               ),
             ),
             minX: 1,
             maxX: 8,
             minY: 0,
-            maxY: maxY,
+            maxY: maxYValue, // Use the calculated maxYValue
             lineBarsData: [
               LineChartBarData(
                 spots: chartData,
@@ -80,7 +96,7 @@ class SpectrumChart extends StatelessWidget {
                       Color.fromRGBO(247, 149, 70, 0.8),
                       Color.fromRGBO(255, 0, 0, 0.8),
                     ],
-                    stops: const [
+                    stops: [
                       0,
                       0.14285714285714285,
                       0.2857142857142857,

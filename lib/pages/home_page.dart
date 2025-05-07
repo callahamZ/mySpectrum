@@ -25,9 +25,6 @@ class _HomePageContentState extends State<HomePageContent> {
   List<double> _serialSpectrumData = List.filled(8, 0.0);
   double _serialTemperature = 0.0;
   double _serialLux = 0.0;
-  List<double> _firebaseSpectrumData = [];
-  String _firebaseTemperature = "N/A";
-  String _firebaseLux = "N/A";
 
   final SerialService _serialService = SerialService();
   bool _isFirstBuild = true;
@@ -61,21 +58,6 @@ class _HomePageContentState extends State<HomePageContent> {
       _serialService.onDataReceived = null;
     }
     super.dispose();
-  }
-
-  double _calculateMaxY(List<double> data) {
-    double maxY_Val = 1000.0;
-    if (data.isEmpty) return maxY_Val; // Default if no data
-
-    const maxList = [1000.0, 5000.0, 10000.0, 25000.0, 50000.0, 70000.0];
-    double maxValue = data.reduce(max);
-    for (var maxPoints in maxList) {
-      if (maxValue < maxPoints) {
-        maxY_Val = maxPoints;
-        break;
-      }
-    }
-    return maxY_Val;
   }
 
   @override
@@ -140,30 +122,21 @@ class _HomePageContentState extends State<HomePageContent> {
                 return FlSpot(entry.key.toDouble() + 1, entry.value);
               }).toList();
 
-          final maxYValue = _calculateMaxY(spektrumDataIntVal);
-
-          return _buildContent(chartData, tempVal, luxVal, maxY: maxYValue);
+          return _buildContent(chartData, tempVal, luxVal);
         },
       );
     } else {
-      final maxYValue = _calculateMaxY(_serialSpectrumData);
       return _buildContent(
         _serialSpectrumData.asMap().entries.map((entry) {
           return FlSpot(entry.key.toDouble() + 1, entry.value);
         }).toList(),
         _serialTemperature.toString(),
         _serialLux.toString(),
-        maxY: maxYValue,
       );
     }
   }
 
-  Widget _buildContent(
-    List<FlSpot> chartData,
-    String tempVal,
-    String luxVal, {
-    double maxY = 5000,
-  }) {
+  Widget _buildContent(List<FlSpot> chartData, String tempVal, String luxVal) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -223,7 +196,7 @@ class _HomePageContentState extends State<HomePageContent> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(chartData: chartData, maxY: maxY),
+                child: SpectrumChart(chartData: chartData),
               ),
             ),
           ),
