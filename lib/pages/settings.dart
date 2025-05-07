@@ -30,7 +30,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _refreshSerialPortList() async {
     setState(() {
-      _serialPortListFuture = UsbSerial.listDevices();
+      _serialPortListFuture = Future.delayed(
+        const Duration(milliseconds: 500),
+        () => UsbSerial.listDevices(),
+      );
     });
   }
 
