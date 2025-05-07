@@ -4,7 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:spectrumapp/services/database_service.dart';
-import 'package:spectrumapp/services/graph_service.dart';
+import 'package:spectrumapp/services/graph_framework.dart';
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -27,6 +27,7 @@ class _HomePageContentState extends State<HomePageContent> {
   double _serialLux = 0.0;
 
   final SerialService _serialService = SerialService();
+  bool _isFirstBuild = true;
 
   @override
   void initState() {
@@ -119,13 +120,17 @@ class _HomePageContentState extends State<HomePageContent> {
             luxVal = rootData!["sensorCahaya"]["Lux"].toString();
           }
 
-          DatabaseHelper.instance.insertMeasurement(
-            timestamp: DateTime.now(),
-            spectrumData:
-                spektrumDataIntVal, // adjust according to your Firebase data structure
-            temperature: double.parse(tempVal),
-            lux: double.parse(luxVal),
-          );
+          if (!_isFirstBuild) {
+            DatabaseHelper.instance.insertMeasurement(
+              timestamp: DateTime.now(),
+              spectrumData:
+                  spektrumDataIntVal, // adjust according to your Firebase data structure
+              temperature: double.parse(tempVal),
+              lux: double.parse(luxVal),
+            );
+          }
+
+          _isFirstBuild = false;
 
           List<FlSpot> chartData =
               spektrumDataIntVal.asMap().entries.map((entry) {

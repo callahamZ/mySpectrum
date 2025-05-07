@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
-import 'package:spectrumapp/services/graph_service.dart';
+import 'package:spectrumapp/services/graph_framework.dart';
 
 class CompareModePage extends StatefulWidget {
   final bool isFirebaseMode;
