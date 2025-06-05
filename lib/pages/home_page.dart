@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:spectrumapp/services/graph_framework.dart';
 import 'package:spectrumapp/services/firebase_streamer.dart';
+import 'package:spectrumapp/services/database_service.dart'; // Import the database service
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -20,10 +20,9 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
-  final DatabaseReference spektrumDatabase = FirebaseDatabase.instance.ref();
-  List<double> _serialSpectrumData = List.filled(8, 0.0);
-  double _serialTemperature = 0.0;
-  double _serialLux = 0.0;
+  List<FlSpot> _chartData = [];
+  String _temperature = "N/A";
+  String _lux = "N/A";
 
   final SerialService _serialService = SerialService();
 
@@ -32,6 +31,27 @@ class _HomePageContentState extends State<HomePageContent> {
     super.initState();
     if (!widget.isFirebaseMode) {
       _serialService.onDataReceived = _updateSerialData;
+    } else {
+      _loadLatestFirebaseData(); // Load data from DB when in Firebase mode
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePageContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isFirebaseMode != oldWidget.isFirebaseMode) {
+      if (!widget.isFirebaseMode) {
+        _serialService.onDataReceived = _updateSerialData;
+        // Clear Firebase data when switching to serial mode
+        setState(() {
+          _chartData = [];
+          _temperature = "N/A";
+          _lux = "N/A";
+        });
+      } else {
+        _serialService.onDataReceived = null; // Stop serial listening
+        _loadLatestFirebaseData(); // Load data from DB when switching to Firebase mode
+      }
     }
   }
 
@@ -42,9 +62,55 @@ class _HomePageContentState extends State<HomePageContent> {
   ) {
     if (mounted && !widget.isFirebaseMode) {
       setState(() {
-        _serialSpectrumData = spektrumData;
-        _serialTemperature = temperature;
-        _serialLux = lux;
+        _chartData =
+            spektrumData.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble() + 1, entry.value);
+            }).toList();
+        _temperature = temperature.toString();
+        _lux = lux.toString();
+      });
+    }
+  }
+
+  // New method to load the latest data from the local database
+  Future<void> _loadLatestFirebaseData() async {
+    final latestMeasurement =
+        await DatabaseHelper.instance.getLatestMeasurement();
+    if (latestMeasurement != null) {
+      setState(() {
+        // Parse spectrum data from string to List<double>
+        final spectrumDataString =
+            latestMeasurement[DatabaseHelper.columnSpectrumData] as String?;
+        if (spectrumDataString != null && spectrumDataString.isNotEmpty) {
+          _chartData =
+              spectrumDataString
+                  .split(',')
+                  .map((e) => double.parse(e))
+                  .toList()
+                  .asMap()
+                  .entries
+                  .map((entry) {
+                    return FlSpot(entry.key.toDouble() + 1, entry.value);
+                  })
+                  .toList();
+        } else {
+          _chartData = [];
+        }
+        _temperature =
+            (latestMeasurement[DatabaseHelper.columnTemperature] as double?)
+                ?.toString() ??
+            "N/A";
+        _lux =
+            (latestMeasurement[DatabaseHelper.columnLux] as double?)
+                ?.toString() ??
+            "N/A";
+      });
+    } else {
+      // If no data in DB, reset display
+      setState(() {
+        _chartData = [];
+        _temperature = "N/A";
+        _lux = "N/A";
       });
     }
   }
@@ -60,27 +126,14 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isFirebaseMode) {
-      return FirebaseStreamer(
-        builder: (context, chartData, tempVal, luxVal, {maxY}) {
-          return _buildContent(chartData, tempVal, luxVal);
-        },
-      );
-    } else {
-      return _buildContent(
-        _serialSpectrumData.asMap().entries.map((entry) {
-          return FlSpot(entry.key.toDouble() + 1, entry.value);
-        }).toList(),
-        _serialTemperature.toString(),
-        _serialLux.toString(),
-      );
-    }
-  }
-
-  Widget _buildContent(List<FlSpot> chartData, String tempVal, String luxVal) {
     return SingleChildScrollView(
       child: Column(
         children: [
+          // This FirebaseStreamer is now just for saving data, not displaying
+          if (widget.isFirebaseMode)
+            FirebaseStreamer(
+              onDataSaved: _loadLatestFirebaseData, // Callback to refresh UI
+            ),
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
@@ -137,7 +190,9 @@ class _HomePageContentState extends State<HomePageContent> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(chartData: chartData),
+                child: SpectrumChart(
+                  chartData: _chartData,
+                ), // Use local state data
               ),
             ),
           ),
@@ -168,7 +223,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     children: [
                       const Icon(Icons.thermostat, color: Colors.blueAccent),
                       Text(
-                        " $tempVal° C",
+                        " $_temperature° C", // Use local state data
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -209,7 +264,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     children: [
                       const Icon(Icons.brightness_medium, color: Colors.blue),
                       Text(
-                        " $luxVal Lux",
+                        " $_lux Lux", // Use local state data
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 22,

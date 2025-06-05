@@ -88,5 +88,18 @@ class DatabaseHelper {
     });
   }
 
-  // (We'll add methods to retrieve data later in DataRecordPage)
+  // New method to get the latest measurement
+  Future<Map<String, dynamic>?> getLatestMeasurement() async {
+    Database db = await instance.database;
+    List<Map<String, dynamic>> result = await db.query(
+      table,
+      orderBy:
+          '$columnTimestamp DESC', // Order by timestamp in descending order
+      limit: 1, // Get only the latest one
+    );
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
 }

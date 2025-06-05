@@ -1,9 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:spectrumapp/services/graph_framework.dart';
+import 'package:spectrumapp/services/database_service.dart';
+import 'package:spectrumapp/services/firebase_streamer.dart';
+import 'package:spectrumapp/pages/reference_data.dart'; // Import the new page
 
 class CompareModePage extends StatefulWidget {
   final bool isFirebaseMode;
@@ -20,10 +23,15 @@ class CompareModePage extends StatefulWidget {
 }
 
 class _CompareModePageState extends State<CompareModePage> {
-  final DatabaseReference spektrumDatabase = FirebaseDatabase.instance.ref();
   List<double> _serialSpectrumData = List.filled(8, 0.0);
-  double _serialTemperature = 0.0;
-  double _serialLux = 0.0;
+
+  List<FlSpot> _currentChartData =
+      []; // Data from current measurement (live or from DB)
+  List<double> _currentSpectrumValues = List.filled(8, 0.0);
+
+  // State variables to hold the selected reference data
+  List<double> _referenceSpectrumValues = List.filled(8, 0.0);
+  String _referenceTimestamp = "No Reference Selected";
 
   final SerialService _serialService = SerialService();
 
@@ -32,6 +40,26 @@ class _CompareModePageState extends State<CompareModePage> {
     super.initState();
     if (!widget.isFirebaseMode) {
       _serialService.onDataReceived = _updateSerialData;
+    } else {
+      _loadLatestFirebaseData(); // Load current data from DB when in Firebase mode
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CompareModePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isFirebaseMode != oldWidget.isFirebaseMode) {
+      if (!widget.isFirebaseMode) {
+        _serialService.onDataReceived = _updateSerialData;
+        // Clear Firebase data when switching to serial mode
+        setState(() {
+          _currentChartData = [];
+          _currentSpectrumValues = List.filled(8, 0.0);
+        });
+      } else {
+        _serialService.onDataReceived = null; // Stop serial listening
+        _loadLatestFirebaseData(); // Load current data from DB when switching to Firebase mode
+      }
     }
   }
 
@@ -42,12 +70,136 @@ class _CompareModePageState extends State<CompareModePage> {
   ) {
     if (mounted && !widget.isFirebaseMode) {
       setState(() {
-        _serialSpectrumData = spektrumData;
-        _serialTemperature = temperature;
-        _serialLux = lux;
+        _currentSpectrumValues = spektrumData;
+        _currentChartData =
+            spektrumData.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble() + 1, entry.value);
+            }).toList();
       });
     }
   }
+
+  // Method to load the latest current data from the local database
+  Future<void> _loadLatestFirebaseData() async {
+    final latestMeasurement =
+        await DatabaseHelper.instance.getLatestMeasurement();
+    if (latestMeasurement != null) {
+      setState(() {
+        final spectrumDataString =
+            latestMeasurement[DatabaseHelper.columnSpectrumData] as String?;
+        if (spectrumDataString != null && spectrumDataString.isNotEmpty) {
+          _currentSpectrumValues =
+              spectrumDataString
+                  .split(',')
+                  .map((e) => double.parse(e))
+                  .toList();
+          _currentChartData =
+              _currentSpectrumValues.asMap().entries.map((entry) {
+                return FlSpot(entry.key.toDouble() + 1, entry.value);
+              }).toList();
+        } else {
+          _currentSpectrumValues = List.filled(8, 0.0);
+          _currentChartData = [];
+        }
+      });
+    } else {
+      setState(() {
+        _currentSpectrumValues = List.filled(8, 0.0);
+        _currentChartData = [];
+      });
+    }
+  }
+
+  // Method to handle reference data selection
+  Future<void> _selectReferenceData() async {
+    final selectedData = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ReferenceDataSelectionPage(),
+      ),
+    );
+
+    if (selectedData != null && selectedData is Map<String, dynamic>) {
+      setState(() {
+        final spectrumDataString =
+            selectedData[DatabaseHelper.columnSpectrumData] as String?;
+        if (spectrumDataString != null && spectrumDataString.isNotEmpty) {
+          _referenceSpectrumValues =
+              spectrumDataString
+                  .split(',')
+                  .map((e) => double.parse(e))
+                  .toList();
+        } else {
+          _referenceSpectrumValues = List.filled(8, 0.0);
+        }
+        _referenceTimestamp = DateFormat(
+          'yyyy-MM-dd HH:mm:ss',
+        ).format(DateTime.parse(selectedData[DatabaseHelper.columnTimestamp]));
+      });
+    }
+  }
+
+  // --- Delta Calculation Functions ---
+  String _calculateDeltaAvg() {
+    if (_currentSpectrumValues.isEmpty ||
+        _referenceSpectrumValues.isEmpty ||
+        _currentSpectrumValues.length != _referenceSpectrumValues.length) {
+      return "N/A";
+    }
+    double currentAvg =
+        _currentSpectrumValues.reduce((a, b) => a + b) /
+        _currentSpectrumValues.length;
+    double referenceAvg =
+        _referenceSpectrumValues.reduce((a, b) => a + b) /
+        _referenceSpectrumValues.length;
+    return (currentAvg - referenceAvg).toStringAsFixed(1);
+  }
+
+  String _calculateDeltaHighest() {
+    if (_currentSpectrumValues.isEmpty ||
+        _referenceSpectrumValues.isEmpty ||
+        _currentSpectrumValues.length != _referenceSpectrumValues.length) {
+      return "N/A";
+    }
+    double currentHighest = _currentSpectrumValues.reduce(max);
+    double referenceHighest = _referenceSpectrumValues.reduce(max);
+    int currentHighestIndex =
+        _currentSpectrumValues.indexOf(currentHighest) + 1;
+    int referenceHighestIndex =
+        _referenceSpectrumValues.indexOf(referenceHighest) + 1;
+
+    String highestInfo = "";
+    double delta = currentHighest - referenceHighest;
+
+    // Determine which Fx value has the highest change (absolute difference)
+    double maxDeltaFx = 0.0;
+    int maxDeltaFxIndex = -1;
+    for (int i = 0; i < _currentSpectrumValues.length; i++) {
+      double deltaFx =
+          (_currentSpectrumValues[i] - _referenceSpectrumValues[i]).abs();
+      if (deltaFx > maxDeltaFx) {
+        maxDeltaFx = deltaFx;
+        maxDeltaFxIndex = i + 1;
+      }
+    }
+    highestInfo = " (${maxDeltaFxIndex != -1 ? 'F$maxDeltaFxIndex' : 'N/A'})";
+
+    return "${delta.toStringAsFixed(1)}$highestInfo";
+  }
+
+  String _calculateDeltaFx(int index) {
+    if (index < 0 ||
+        index >= _currentSpectrumValues.length ||
+        index >= _referenceSpectrumValues.length ||
+        _currentSpectrumValues.isEmpty ||
+        _referenceSpectrumValues.isEmpty) {
+      return "N/A";
+    }
+    double delta =
+        _currentSpectrumValues[index] - _referenceSpectrumValues[index];
+    return delta.toStringAsFixed(1);
+  }
+  // --- End Delta Calculation Functions ---
 
   @override
   void dispose() {
@@ -58,98 +210,15 @@ class _CompareModePageState extends State<CompareModePage> {
     super.dispose();
   }
 
-  double _calculateMaxY(List<double> data) {
-    double maxY_Val = 1000.0;
-    if (data.isEmpty) return maxY_Val; // Default if no data
-
-    const maxList = [1000.0, 5000.0, 10000.0, 25000.0, 50000.0, 70000.0];
-    double maxValue = data.reduce(max);
-    for (var maxPoints in maxList) {
-      if (maxValue < maxPoints) {
-        maxY_Val = maxPoints;
-        break;
-      }
-    }
-    return maxY_Val;
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (widget.isFirebaseMode) {
-      return StreamBuilder<DatabaseEvent>(
-        stream: spektrumDatabase.onValue,
-        builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-          List<double> spektrumDataIntVal = [];
-          Map<dynamic, dynamic>? rootData;
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (snapshot.hasData &&
-              snapshot.data!.snapshot.value != null) {
-            rootData = snapshot.data!.snapshot.value as Map<dynamic, dynamic>?;
-          }
-
-          if (rootData != null) {
-            try {
-              Map<dynamic, dynamic>? spektrumData = rootData["sensorSpektrum"];
-              if (spektrumData != null) {
-                for (int i = 1; i <= 8; i++) {
-                  String key = 'F$i';
-                  if (spektrumData.containsKey(key)) {
-                    double value = double.parse(spektrumData[key].toString());
-                    spektrumDataIntVal.add(value);
-                  }
-                }
-              }
-            } catch (e) {
-              print("Error processing data: $e");
-            }
-          }
-
-          String tempVal = "N/A";
-          if (rootData?["sensorSuhu"]["Suhu"] != null) {
-            tempVal = rootData!["sensorSuhu"]["Suhu"].toString();
-          }
-
-          String luxVal = "N/A";
-          if (rootData?["sensorCahaya"]["Lux"] != null) {
-            luxVal = rootData!["sensorCahaya"]["Lux"].toString();
-          }
-
-          List<FlSpot> chartData =
-              spektrumDataIntVal.asMap().entries.map((entry) {
-                return FlSpot(entry.key.toDouble() + 1, entry.value);
-              }).toList();
-
-          final maxYValue = _calculateMaxY(spektrumDataIntVal);
-
-          return _buildContent(chartData, tempVal, luxVal, maxY: maxYValue);
-        },
-      );
-    } else {
-      final maxYValue = _calculateMaxY(_serialSpectrumData);
-      return _buildContent(
-        _serialSpectrumData.asMap().entries.map((entry) {
-          return FlSpot(entry.key.toDouble() + 1, entry.value);
-        }).toList(),
-        _serialTemperature.toString(),
-        _serialLux.toString(),
-        maxY: maxYValue,
-      );
-    }
-  }
-
-  Widget _buildContent(
-    List<FlSpot> chartData,
-    String tempVal,
-    String luxVal, {
-    double maxY = 5000,
-  }) {
     return SingleChildScrollView(
       child: Column(
         children: [
+          if (widget.isFirebaseMode)
+            FirebaseStreamer(
+              onDataSaved: _loadLatestFirebaseData, // Callback to refresh UI
+            ),
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
@@ -206,12 +275,24 @@ class _CompareModePageState extends State<CompareModePage> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(chartData: chartData),
+                child: SpectrumChart(
+                  chartData:
+                      widget.isFirebaseMode
+                          ? _currentChartData
+                          : _serialSpectrumData.asMap().entries.map((entry) {
+                            return FlSpot(
+                              entry.key.toDouble() + 1,
+                              entry.value,
+                            );
+                          }).toList(),
+                ),
               ),
             ),
           ),
+          // Reference Data Button
           GestureDetector(
-            onTap: widget.toggleFirebaseMode,
+            onTap:
+                _selectReferenceData, // Call the new method to select reference data
             child: Container(
               margin: const EdgeInsets.all(16.0),
               padding: const EdgeInsets.all(8.0),
@@ -230,19 +311,27 @@ class _CompareModePageState extends State<CompareModePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.data_saver_on, color: Colors.white, size: 24.0),
+                  const Icon(
+                    Icons.data_saver_on,
+                    color: Colors.white,
+                    size: 24.0,
+                  ),
                   const SizedBox(width: 8.0),
-                  Text(
-                    "Reference Data",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      "Reference Data: $_referenceTimestamp", // Display selected reference timestamp
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis, // Prevent text overflow
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          // Delta Calculations Display
           Row(
             children: [
               Expanded(
@@ -270,11 +359,17 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.add_chart, color: Colors.blue),
                       Text(
-                        " -64",
-                        style: const TextStyle(
+                        _calculateDeltaAvg(), // Dynamic value
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 22,
-                          color: Colors.green,
+                          color:
+                              double.tryParse(
+                                        _calculateDeltaAvg(),
+                                      )?.isNegative ==
+                                      true
+                                  ? Colors.red
+                                  : Colors.green, // Color based on value
                         ),
                       ),
                       const Text(
@@ -312,11 +407,17 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.trending_up, color: Colors.blue),
                       Text(
-                        " -102 (F2)",
-                        style: const TextStyle(
+                        _calculateDeltaHighest(), // Dynamic value
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 22,
-                          color: Colors.red,
+                          color:
+                              double.tryParse(
+                                        _calculateDeltaHighest().split(' ')[0],
+                                      )?.isNegative ==
+                                      true
+                                  ? Colors.red
+                                  : Colors.green, // Color based on value
                         ),
                       ),
                       const Text(
@@ -331,333 +432,63 @@ class _CompareModePageState extends State<CompareModePage> {
               ),
             ],
           ),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 16.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -11",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF1",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
+          // ΔF1 to ΔF8 Displays
+          GridView.builder(
+            shrinkWrap:
+                true, // Use this as GridView is inside SingleChildScrollView
+            physics:
+                const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4, // 4 columns for F1-F8
+              crossAxisSpacing: 8.0,
+              mainAxisSpacing: 8.0,
+              childAspectRatio: 1.0, // Adjust as needed for square cells
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            itemCount: 8,
+            itemBuilder: (context, index) {
+              final deltaValue = _calculateDeltaFx(index);
+              return Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10.0),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromARGB(50, 0, 0, 0),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deltaValue, // Dynamic value
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color:
+                            double.tryParse(deltaValue)?.isNegative == true
+                                ? Colors.red
+                                : Colors.green, // Color based on value
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -102",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
+                    ),
+                    Text(
+                      " ΔF${index + 1}",
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 85, 85, 85),
                       ),
-                      const Text(
-                        " ΔF2",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -8",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF3",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 16.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -14",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF4",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 16.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -47",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF5",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -61",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF6",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 8.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -33",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF7",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    right: 16.0,
-                    left: 8.0,
-                    bottom: 8.0,
-                  ),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(50, 0, 0, 0),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        " -51",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      const Text(
-                        " ΔF8",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 85, 85, 85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
