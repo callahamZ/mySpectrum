@@ -3,7 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:spectrumapp/services/serial_service.dart';
 import 'package:spectrumapp/services/graph_framework.dart';
 import 'package:spectrumapp/services/firebase_streamer.dart';
-import 'package:spectrumapp/services/database_service.dart'; // Import the database service
+import 'package:spectrumapp/services/database_service.dart';
+import 'package:spectrumapp/services/data_process.dart'; // Import the new data processing service
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -23,6 +24,15 @@ class _HomePageContentState extends State<HomePageContent> {
   List<FlSpot> _chartData = [];
   String _temperature = "N/A";
   String _lux = "N/A";
+  List<double> _basicCounts = List.filled(10, 0.0); // Adjusted to 10 channels
+  List<double> _dataSensorCorr = List.filled(
+    10,
+    0.0,
+  ); // Adjusted to 10 channels
+  List<double> _dataSensorCorrNor = List.filled(
+    10,
+    0.0,
+  ); // Adjusted to 10 channels
 
   final SerialService _serialService = SerialService();
 
@@ -42,11 +52,14 @@ class _HomePageContentState extends State<HomePageContent> {
     if (widget.isFirebaseMode != oldWidget.isFirebaseMode) {
       if (!widget.isFirebaseMode) {
         _serialService.onDataReceived = _updateSerialData;
-        // Clear Firebase data when switching to serial mode
+        // Clear data when switching to serial mode
         setState(() {
           _chartData = [];
           _temperature = "N/A";
           _lux = "N/A";
+          _basicCounts = List.filled(10, 0.0);
+          _dataSensorCorr = List.filled(10, 0.0);
+          _dataSensorCorrNor = List.filled(10, 0.0);
         });
       } else {
         _serialService.onDataReceived = null; // Stop serial listening
@@ -56,61 +69,75 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _updateSerialData(
-    List<double> spektrumData,
+    List<double>
+    spektrumData, // This might need to be adjusted if serial sends 10 values
     double temperature,
     double lux,
   ) {
     if (mounted && !widget.isFirebaseMode) {
       setState(() {
+        // Only map F1 to F8 for the chart display
         _chartData =
-            spektrumData.asMap().entries.map((entry) {
+            spektrumData.sublist(0, 8).asMap().entries.map((entry) {
               return FlSpot(entry.key.toDouble() + 1, entry.value);
             }).toList();
-        _temperature = temperature.toString();
-        _lux = lux.toString();
+        _temperature = temperature.toStringAsFixed(1);
+        _lux = lux.toStringAsFixed(1);
+
+        _basicCounts = DataProcessor.calculateBasicCount(spektrumData);
+        _dataSensorCorr = DataProcessor.calculateDataSensorCorr(_basicCounts);
+        _dataSensorCorrNor = DataProcessor.calculateDataSensorCorrNor(
+          _dataSensorCorr,
+        );
       });
     }
   }
 
-  // New method to load the latest data from the local database
   Future<void> _loadLatestFirebaseData() async {
     final latestMeasurement =
         await DatabaseHelper.instance.getLatestMeasurement();
     if (latestMeasurement != null) {
       setState(() {
-        // Parse spectrum data from string to List<double>
         final spectrumDataString =
             latestMeasurement[DatabaseHelper.columnSpectrumData] as String?;
+        List<double> rawSpectrumData = [];
         if (spectrumDataString != null && spectrumDataString.isNotEmpty) {
-          _chartData =
+          rawSpectrumData =
               spectrumDataString
                   .split(',')
                   .map((e) => double.parse(e))
-                  .toList()
-                  .asMap()
-                  .entries
-                  .map((entry) {
-                    return FlSpot(entry.key.toDouble() + 1, entry.value);
-                  })
                   .toList();
+          // Only map F1 to F8 for the chart display
+          _chartData =
+              rawSpectrumData.sublist(0, 8).asMap().entries.map((entry) {
+                return FlSpot(entry.key.toDouble() + 1, entry.value);
+              }).toList();
         } else {
           _chartData = [];
         }
         _temperature =
             (latestMeasurement[DatabaseHelper.columnTemperature] as double?)
-                ?.toString() ??
+                ?.toStringAsFixed(1) ??
             "N/A";
         _lux =
             (latestMeasurement[DatabaseHelper.columnLux] as double?)
-                ?.toString() ??
+                ?.toStringAsFixed(1) ??
             "N/A";
+
+        _basicCounts = DataProcessor.calculateBasicCount(rawSpectrumData);
+        _dataSensorCorr = DataProcessor.calculateDataSensorCorr(_basicCounts);
+        _dataSensorCorrNor = DataProcessor.calculateDataSensorCorrNor(
+          _dataSensorCorr,
+        );
       });
     } else {
-      // If no data in DB, reset display
       setState(() {
         _chartData = [];
         _temperature = "N/A";
         _lux = "N/A";
+        _basicCounts = List.filled(10, 0.0);
+        _dataSensorCorr = List.filled(10, 0.0);
+        _dataSensorCorrNor = List.filled(10, 0.0);
       });
     }
   }
@@ -124,16 +151,24 @@ class _HomePageContentState extends State<HomePageContent> {
     super.dispose();
   }
 
+  String _getChannelName(int index) {
+    if (index >= 0 && index < 8) {
+      return "F${index + 1}";
+    } else if (index == 8) {
+      return "Clear";
+    } else if (index == 9) {
+      return "NIR";
+    }
+    return ""; // Should not happen with current loop
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // This FirebaseStreamer is now just for saving data, not displaying
           if (widget.isFirebaseMode)
-            FirebaseStreamer(
-              onDataSaved: _loadLatestFirebaseData, // Callback to refresh UI
-            ),
+            FirebaseStreamer(onDataSaved: _loadLatestFirebaseData),
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
@@ -190,9 +225,7 @@ class _HomePageContentState extends State<HomePageContent> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(
-                  chartData: _chartData,
-                ), // Use local state data
+                child: SpectrumChart(chartData: _chartData),
               ),
             ),
           ),
@@ -223,7 +256,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     children: [
                       const Icon(Icons.thermostat, color: Colors.blueAccent),
                       Text(
-                        " $_temperature° C", // Use local state data
+                        " $_temperature° C",
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -264,7 +297,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     children: [
                       const Icon(Icons.brightness_medium, color: Colors.blue),
                       Text(
-                        " $_lux Lux", // Use local state data
+                        " $_lux Lux",
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 22,
@@ -281,6 +314,129 @@ class _HomePageContentState extends State<HomePageContent> {
                 ),
               ),
             ],
+          ),
+          Container(
+            margin: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(50, 0, 0, 0),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Processed Data",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 8.0),
+                Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(1), // Channel
+                    1: FlexColumnWidth(2), // Basic Count
+                    2: FlexColumnWidth(2), // Data Sensor (Corr)
+                    3: FlexColumnWidth(2), // Data Sensor (Corr/Nor)
+                  },
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: Colors.grey.shade200),
+                      children: const [
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Channel",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Basic Count",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Data Sensor (Corr)",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Data Sensor (Corr/Nor)",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                    for (int i = 0; i < _basicCounts.length; i++)
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              _getChannelName(i),
+                              style: const TextStyle(fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              _basicCounts[i].toStringAsFixed(5),
+                              style: const TextStyle(fontSize: 12),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              _dataSensorCorr[i].toStringAsFixed(5),
+                              style: const TextStyle(fontSize: 12),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              _dataSensorCorrNor[i].toStringAsFixed(5),
+                              style: const TextStyle(fontSize: 12),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

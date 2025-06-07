@@ -72,6 +72,24 @@ class _FirebaseStreamerState extends State<FirebaseStreamer> {
                     currentSpektrumDataIntVal.add(value);
                   }
                 }
+                // Extract Clear data
+                if (spektrumData.containsKey("Clear")) {
+                  double clearValue = double.parse(
+                    spektrumData["Clear"].toString(),
+                  );
+                  currentSpektrumDataIntVal.add(clearValue);
+                } else {
+                  currentSpektrumDataIntVal.add(0.0); // Add default if missing
+                }
+                // Extract NIR data
+                if (spektrumData.containsKey("NIR")) {
+                  double nirValue = double.parse(
+                    spektrumData["NIR"].toString(),
+                  );
+                  currentSpektrumDataIntVal.add(nirValue);
+                } else {
+                  currentSpektrumDataIntVal.add(0.0); // Add default if missing
+                }
               }
 
               // Extract temperature data

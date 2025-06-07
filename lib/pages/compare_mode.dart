@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:spectrumapp/services/serial_service.dart';
-import 'package:spectrumapp/services/graph_framework.dart'; // Ensure this is imported correctly
+import 'package:spectrumapp/services/graph_framework.dart';
 import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/firebase_streamer.dart';
-import 'package:spectrumapp/pages/reference_data.dart';
+import 'package:spectrumapp/pages/reference_data.dart'; // Ensure correct import
 
 class CompareModePage extends StatefulWidget {
   final bool isFirebaseMode;
@@ -23,15 +23,17 @@ class CompareModePage extends StatefulWidget {
 }
 
 class _CompareModePageState extends State<CompareModePage> {
+  // _serialSpectrumData holds the raw 8 Fx values for serial mode's chart
   List<double> _serialSpectrumData = List.filled(8, 0.0);
 
-  List<FlSpot> _currentChartData =
-      []; // Data from current measurement (live or from DB)
-  List<double> _currentSpectrumValues = List.filled(8, 0.0);
+  // _currentChartData and _referenceChartData are FlSpot lists specifically for F1-F8 for the chart
+  List<FlSpot> _currentChartData = [];
+  List<FlSpot> _referenceChartData = [];
 
-  // State variables to hold the selected reference data
-  List<double> _referenceSpectrumValues = List.filled(8, 0.0);
-  List<FlSpot> _referenceChartData = []; // New: FlSpot list for reference graph
+  // _currentSpectrumValues and _referenceSpectrumValues hold all 10 raw double values (F1-F8, Clear, NIR) for calculations
+  List<double> _currentSpectrumValues = List.filled(10, 0.0);
+  List<double> _referenceSpectrumValues = List.filled(10, 0.0);
+
   String _referenceTimestamp = "Nothing";
 
   final SerialService _serialService = SerialService();
@@ -54,13 +56,16 @@ class _CompareModePageState extends State<CompareModePage> {
         _serialService.onDataReceived = _updateSerialData;
         setState(() {
           _currentChartData = [];
-          _currentSpectrumValues = List.filled(8, 0.0);
-          _referenceChartData = []; // Clear reference chart data
-          _referenceSpectrumValues = List.filled(
-            8,
+          _currentSpectrumValues = List.filled(
+            10,
             0.0,
-          ); // Clear reference raw data
-          _referenceTimestamp = "Nothing"; // Reset reference timestamp
+          ); // Reset to 10 for serial
+          _referenceChartData = [];
+          _referenceSpectrumValues = List.filled(
+            10,
+            0.0,
+          ); // Reset to 10 for serial
+          _referenceTimestamp = "Nothing";
         });
       } else {
         _serialService.onDataReceived = null;
@@ -70,17 +75,18 @@ class _CompareModePageState extends State<CompareModePage> {
   }
 
   void _updateSerialData(
-    List<double> spektrumData,
+    List<double> spektrumData, // Assuming this contains 8 Fx values for serial
     double temperature,
     double lux,
   ) {
     if (mounted && !widget.isFirebaseMode) {
       setState(() {
-        _currentSpectrumValues = spektrumData;
-        _currentChartData =
-            spektrumData.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble() + 1, entry.value);
-            }).toList();
+        _serialSpectrumData = spektrumData; // This should only be 8 values
+        _currentSpectrumValues = List.from(
+          spektrumData,
+        ); // If serial sends 8, this will be 8. Extend or handle as needed.
+        // For serial, _currentChartData is directly derived from _serialSpectrumData in build method.
+        // No need to set _currentChartData explicitly here for serial mode.
       });
     }
   }
@@ -92,24 +98,34 @@ class _CompareModePageState extends State<CompareModePage> {
       setState(() {
         final spectrumDataString =
             latestMeasurement[DatabaseHelper.columnSpectrumData] as String?;
+        List<double> rawSpectrumData = [];
         if (spectrumDataString != null && spectrumDataString.isNotEmpty) {
-          _currentSpectrumValues =
+          rawSpectrumData =
               spectrumDataString
                   .split(',')
                   .map((e) => double.parse(e))
                   .toList();
+          _currentSpectrumValues =
+              rawSpectrumData; // Store all 10 for calculations
+
+          // Only map F1 to F8 (first 8 elements) for the chart display
           _currentChartData =
-              _currentSpectrumValues.asMap().entries.map((entry) {
-                return FlSpot(entry.key.toDouble() + 1, entry.value);
-              }).toList();
+              rawSpectrumData
+                  .sublist(0, min(8, rawSpectrumData.length))
+                  .asMap()
+                  .entries
+                  .map((entry) {
+                    return FlSpot(entry.key.toDouble() + 1, entry.value);
+                  })
+                  .toList();
         } else {
-          _currentSpectrumValues = List.filled(8, 0.0);
+          _currentSpectrumValues = List.filled(10, 0.0);
           _currentChartData = [];
         }
       });
     } else {
       setState(() {
-        _currentSpectrumValues = List.filled(8, 0.0);
+        _currentSpectrumValues = List.filled(10, 0.0);
         _currentChartData = [];
       });
     }
@@ -132,24 +148,28 @@ class _CompareModePageState extends State<CompareModePage> {
               spectrumDataString
                   .split(',')
                   .map((e) => double.parse(e))
-                  .toList();
-          // Convert reference raw data to FlSpot list for charting
+                  .toList(); // Store all 10 for calculations
+          // Only map F1 to F8 (first 8 elements) for the reference chart display
           _referenceChartData =
-              _referenceSpectrumValues.asMap().entries.map((entry) {
-                return FlSpot(entry.key.toDouble() + 1, entry.value);
-              }).toList();
+              _referenceSpectrumValues
+                  .sublist(0, min(8, _referenceSpectrumValues.length))
+                  .asMap()
+                  .entries
+                  .map((entry) {
+                    return FlSpot(entry.key.toDouble() + 1, entry.value);
+                  })
+                  .toList();
         } else {
-          _referenceSpectrumValues = List.filled(8, 0.0);
-          _referenceChartData = []; // Clear reference chart data if no data
+          _referenceSpectrumValues = List.filled(10, 0.0);
+          _referenceChartData = [];
         }
         _referenceTimestamp = DateFormat(
           'yyyy-MM-dd HH:mm:ss',
         ).format(DateTime.parse(selectedData[DatabaseHelper.columnTimestamp]));
       });
     } else {
-      // If user cancels selection, clear reference data
       setState(() {
-        _referenceSpectrumValues = List.filled(8, 0.0);
+        _referenceSpectrumValues = List.filled(10, 0.0);
         _referenceChartData = [];
         _referenceTimestamp = "Nothing";
       });
@@ -157,30 +177,36 @@ class _CompareModePageState extends State<CompareModePage> {
   }
 
   String _calculateDeltaAvg() {
+    // Ensure calculation only uses F1-F8
     if (_currentSpectrumValues.isEmpty ||
         _referenceSpectrumValues.isEmpty ||
-        _currentSpectrumValues.length != _referenceSpectrumValues.length) {
+        _currentSpectrumValues.length < 8 ||
+        _referenceSpectrumValues.length < 8) {
       return "N/A";
     }
 
     double totalDelta = 0.0;
-    for (int i = 0; i < _currentSpectrumValues.length; i++) {
+    for (int i = 0; i < 8; i++) {
+      // Loop only up to 8 for F1-F8
       totalDelta += (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
     }
-    return (totalDelta / _currentSpectrumValues.length).toStringAsFixed(1);
+    return (totalDelta / 8).toStringAsFixed(1);
   }
 
   String _calculateDeltaHighest() {
+    // Ensure calculation only uses F1-F8
     if (_currentSpectrumValues.isEmpty ||
         _referenceSpectrumValues.isEmpty ||
-        _currentSpectrumValues.length != _referenceSpectrumValues.length) {
+        _currentSpectrumValues.length < 8 ||
+        _referenceSpectrumValues.length < 8) {
       return "N/A";
     }
 
     String highestInfo = "";
     double maxDeltaFx = 0.0;
     int maxDeltaFxIndex = -1;
-    for (int i = 0; i < _currentSpectrumValues.length; i++) {
+    for (int i = 0; i < 8; i++) {
+      // Loop only up to 8 for F1-F8
       double deltaFx =
           (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
       if (deltaFx.abs() > maxDeltaFx.abs()) {
@@ -286,8 +312,7 @@ class _CompareModePageState extends State<CompareModePage> {
                 width: double.infinity,
                 child: SpectrumChart(
                   chartData: displayedChartData,
-                  referenceChartData:
-                      _referenceChartData, // Pass reference data here
+                  referenceChartData: _referenceChartData,
                 ),
               ),
             ),
@@ -451,12 +476,11 @@ class _CompareModePageState extends State<CompareModePage> {
             ),
             child: Table(
               columnWidths: const {
-                0: FlexColumnWidth(1), // Channel column
-                1: FlexColumnWidth(2), // Difference (delta) column
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(2),
               },
               border: TableBorder.all(color: Colors.grey.shade300),
               children: [
-                // Table Header
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade200),
                   children: const [
@@ -479,13 +503,12 @@ class _CompareModePageState extends State<CompareModePage> {
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
-                        textAlign: TextAlign.center, // Align text to right
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
                 ),
-                // Table Rows for F1 to F8
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < 8; i++) // Loop only for F1 to F8
                   TableRow(
                     children: [
                       Padding(
@@ -510,7 +533,7 @@ class _CompareModePageState extends State<CompareModePage> {
                                     ? Colors.red
                                     : Colors.green,
                           ),
-                          textAlign: TextAlign.right, // Align text to right
+                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],
