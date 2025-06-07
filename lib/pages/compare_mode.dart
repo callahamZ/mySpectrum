@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:spectrumapp/services/serial_service.dart';
-import 'package:spectrumapp/services/graph_framework.dart';
+import 'package:spectrumapp/services/graph_framework.dart'; // Ensure this is imported correctly
 import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/firebase_streamer.dart';
-import 'package:spectrumapp/pages/reference_data.dart'; // Import the new page
+import 'package:spectrumapp/pages/reference_data.dart';
 
 class CompareModePage extends StatefulWidget {
   final bool isFirebaseMode;
@@ -31,7 +31,8 @@ class _CompareModePageState extends State<CompareModePage> {
 
   // State variables to hold the selected reference data
   List<double> _referenceSpectrumValues = List.filled(8, 0.0);
-  String _referenceTimestamp = "No Reference Selected";
+  List<FlSpot> _referenceChartData = []; // New: FlSpot list for reference graph
+  String _referenceTimestamp = "Nothing";
 
   final SerialService _serialService = SerialService();
 
@@ -51,14 +52,19 @@ class _CompareModePageState extends State<CompareModePage> {
     if (widget.isFirebaseMode != oldWidget.isFirebaseMode) {
       if (!widget.isFirebaseMode) {
         _serialService.onDataReceived = _updateSerialData;
-        // Clear Firebase data when switching to serial mode
         setState(() {
           _currentChartData = [];
           _currentSpectrumValues = List.filled(8, 0.0);
+          _referenceChartData = []; // Clear reference chart data
+          _referenceSpectrumValues = List.filled(
+            8,
+            0.0,
+          ); // Clear reference raw data
+          _referenceTimestamp = "Nothing"; // Reset reference timestamp
         });
       } else {
-        _serialService.onDataReceived = null; // Stop serial listening
-        _loadLatestFirebaseData(); // Load current data from DB when switching to Firebase mode
+        _serialService.onDataReceived = null;
+        _loadLatestFirebaseData();
       }
     }
   }
@@ -79,7 +85,6 @@ class _CompareModePageState extends State<CompareModePage> {
     }
   }
 
-  // Method to load the latest current data from the local database
   Future<void> _loadLatestFirebaseData() async {
     final latestMeasurement =
         await DatabaseHelper.instance.getLatestMeasurement();
@@ -110,7 +115,6 @@ class _CompareModePageState extends State<CompareModePage> {
     }
   }
 
-  // Method to handle reference data selection
   Future<void> _selectReferenceData() async {
     final selectedData = await Navigator.push(
       context,
@@ -129,30 +133,41 @@ class _CompareModePageState extends State<CompareModePage> {
                   .split(',')
                   .map((e) => double.parse(e))
                   .toList();
+          // Convert reference raw data to FlSpot list for charting
+          _referenceChartData =
+              _referenceSpectrumValues.asMap().entries.map((entry) {
+                return FlSpot(entry.key.toDouble() + 1, entry.value);
+              }).toList();
         } else {
           _referenceSpectrumValues = List.filled(8, 0.0);
+          _referenceChartData = []; // Clear reference chart data if no data
         }
         _referenceTimestamp = DateFormat(
           'yyyy-MM-dd HH:mm:ss',
         ).format(DateTime.parse(selectedData[DatabaseHelper.columnTimestamp]));
       });
+    } else {
+      // If user cancels selection, clear reference data
+      setState(() {
+        _referenceSpectrumValues = List.filled(8, 0.0);
+        _referenceChartData = [];
+        _referenceTimestamp = "Nothing";
+      });
     }
   }
 
-  // --- Delta Calculation Functions ---
   String _calculateDeltaAvg() {
     if (_currentSpectrumValues.isEmpty ||
         _referenceSpectrumValues.isEmpty ||
         _currentSpectrumValues.length != _referenceSpectrumValues.length) {
       return "N/A";
     }
-    double currentAvg =
-        _currentSpectrumValues.reduce((a, b) => a + b) /
-        _currentSpectrumValues.length;
-    double referenceAvg =
-        _referenceSpectrumValues.reduce((a, b) => a + b) /
-        _referenceSpectrumValues.length;
-    return (currentAvg - referenceAvg).toStringAsFixed(1);
+
+    double totalDelta = 0.0;
+    for (int i = 0; i < _currentSpectrumValues.length; i++) {
+      totalDelta += (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
+    }
+    return (totalDelta / _currentSpectrumValues.length).toStringAsFixed(1);
   }
 
   String _calculateDeltaHighest() {
@@ -161,30 +176,20 @@ class _CompareModePageState extends State<CompareModePage> {
         _currentSpectrumValues.length != _referenceSpectrumValues.length) {
       return "N/A";
     }
-    double currentHighest = _currentSpectrumValues.reduce(max);
-    double referenceHighest = _referenceSpectrumValues.reduce(max);
-    int currentHighestIndex =
-        _currentSpectrumValues.indexOf(currentHighest) + 1;
-    int referenceHighestIndex =
-        _referenceSpectrumValues.indexOf(referenceHighest) + 1;
 
     String highestInfo = "";
-    double delta = currentHighest - referenceHighest;
-
-    // Determine which Fx value has the highest change (absolute difference)
     double maxDeltaFx = 0.0;
     int maxDeltaFxIndex = -1;
     for (int i = 0; i < _currentSpectrumValues.length; i++) {
       double deltaFx =
-          (_currentSpectrumValues[i] - _referenceSpectrumValues[i]).abs();
-      if (deltaFx > maxDeltaFx) {
+          (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
+      if (deltaFx.abs() > maxDeltaFx.abs()) {
         maxDeltaFx = deltaFx;
         maxDeltaFxIndex = i + 1;
       }
     }
     highestInfo = " (${maxDeltaFxIndex != -1 ? 'F$maxDeltaFxIndex' : 'N/A'})";
-
-    return "${delta.toStringAsFixed(1)}$highestInfo";
+    return "${maxDeltaFx.toStringAsFixed(1)}$highestInfo";
   }
 
   String _calculateDeltaFx(int index) {
@@ -199,7 +204,6 @@ class _CompareModePageState extends State<CompareModePage> {
         _currentSpectrumValues[index] - _referenceSpectrumValues[index];
     return delta.toStringAsFixed(1);
   }
-  // --- End Delta Calculation Functions ---
 
   @override
   void dispose() {
@@ -212,13 +216,18 @@ class _CompareModePageState extends State<CompareModePage> {
 
   @override
   Widget build(BuildContext context) {
+    List<FlSpot> displayedChartData =
+        widget.isFirebaseMode
+            ? _currentChartData
+            : _serialSpectrumData.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble() + 1, entry.value);
+            }).toList();
+
     return SingleChildScrollView(
       child: Column(
         children: [
           if (widget.isFirebaseMode)
-            FirebaseStreamer(
-              onDataSaved: _loadLatestFirebaseData, // Callback to refresh UI
-            ),
+            FirebaseStreamer(onDataSaved: _loadLatestFirebaseData),
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
@@ -276,23 +285,16 @@ class _CompareModePageState extends State<CompareModePage> {
                 height: 300,
                 width: double.infinity,
                 child: SpectrumChart(
-                  chartData:
-                      widget.isFirebaseMode
-                          ? _currentChartData
-                          : _serialSpectrumData.asMap().entries.map((entry) {
-                            return FlSpot(
-                              entry.key.toDouble() + 1,
-                              entry.value,
-                            );
-                          }).toList(),
+                  chartData: displayedChartData,
+                  referenceChartData:
+                      _referenceChartData, // Pass reference data here
                 ),
               ),
             ),
           ),
           // Reference Data Button
           GestureDetector(
-            onTap:
-                _selectReferenceData, // Call the new method to select reference data
+            onTap: _selectReferenceData,
             child: Container(
               margin: const EdgeInsets.all(16.0),
               padding: const EdgeInsets.all(8.0),
@@ -319,12 +321,12 @@ class _CompareModePageState extends State<CompareModePage> {
                   const SizedBox(width: 8.0),
                   Expanded(
                     child: Text(
-                      "Reference Data: $_referenceTimestamp", // Display selected reference timestamp
+                      "Reference Data: $_referenceTimestamp",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
-                      overflow: TextOverflow.ellipsis, // Prevent text overflow
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -359,17 +361,17 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.add_chart, color: Colors.blue),
                       Text(
-                        _calculateDeltaAvg(), // Dynamic value
+                        _calculateDeltaAvg(),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 22,
+                          fontSize: 18,
                           color:
                               double.tryParse(
                                         _calculateDeltaAvg(),
                                       )?.isNegative ==
                                       true
                                   ? Colors.red
-                                  : Colors.green, // Color based on value
+                                  : Colors.green,
                         ),
                       ),
                       const Text(
@@ -407,17 +409,17 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.trending_up, color: Colors.blue),
                       Text(
-                        _calculateDeltaHighest(), // Dynamic value
+                        _calculateDeltaHighest(),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 22,
+                          fontSize: 18,
                           color:
                               double.tryParse(
                                         _calculateDeltaHighest().split(' ')[0],
                                       )?.isNegative ==
                                       true
                                   ? Colors.red
-                                  : Colors.green, // Color based on value
+                                  : Colors.green,
                         ),
                       ),
                       const Text(
@@ -432,63 +434,89 @@ class _CompareModePageState extends State<CompareModePage> {
               ),
             ],
           ),
-          // ΔF1 to ΔF8 Displays
-          GridView.builder(
-            shrinkWrap:
-                true, // Use this as GridView is inside SingleChildScrollView
-            physics:
-                const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4, // 4 columns for F1-F8
-              crossAxisSpacing: 8.0,
-              mainAxisSpacing: 8.0,
-              childAspectRatio: 1.0, // Adjust as needed for square cells
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            itemCount: 8,
-            itemBuilder: (context, index) {
-              final deltaValue = _calculateDeltaFx(index);
-              return Container(
-                padding: const EdgeInsets.all(8.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10.0),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color.fromARGB(50, 0, 0, 0),
-                      spreadRadius: 2,
-                      blurRadius: 5,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(50, 0, 0, 0),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: Offset(0, 3),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      deltaValue, // Dynamic value
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color:
-                            double.tryParse(deltaValue)?.isNegative == true
-                                ? Colors.red
-                                : Colors.green, // Color based on value
+              ],
+            ),
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1), // Channel column
+                1: FlexColumnWidth(2), // Difference (delta) column
+              },
+              border: TableBorder.all(color: Colors.grey.shade300),
+              children: [
+                // Table Header
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade200),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "Channel",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Text(
-                      " ΔF${index + 1}",
-                      style: const TextStyle(
-                        color: Color.fromARGB(255, 85, 85, 85),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "Difference (Δ)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center, // Align text to right
                       ),
                     ),
                   ],
                 ),
-              );
-            },
+                // Table Rows for F1 to F8
+                for (int i = 0; i < 8; i++)
+                  TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          "F${i + 1}",
+                          style: const TextStyle(fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          _calculateDeltaFx(i),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color:
+                                double.tryParse(
+                                          _calculateDeltaFx(i),
+                                        )?.isNegative ==
+                                        true
+                                    ? Colors.red
+                                    : Colors.green,
+                          ),
+                          textAlign: TextAlign.right, // Align text to right
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ],
       ),
