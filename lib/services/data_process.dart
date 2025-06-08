@@ -78,6 +78,70 @@ class DataProcessor {
     return dataSensorCorr;
   }
 
+  static List<double> multiplyVectorMatrix(
+    List<double> dataSensorCorr,
+    List<List<double>> matrix,
+  ) {
+    if (dataSensorCorr.isEmpty || matrix.isEmpty || matrix[0].isEmpty) {
+      // Handle empty inputs or invalid matrix dimensions
+      return [];
+    }
+
+    int numRowsMatrix = matrix.length; // N
+    int numColsMatrix = matrix[0].length; // M
+    int vectorLength = dataSensorCorr.length; // M
+
+    // Check if the inner dimensions match for multiplication (1xM * NxM is not standard)
+    // For vector * matrix, generally columns of vector must match rows of matrix, or
+    // we're doing a dot product of vector with each row of the matrix.
+    // Given correctionMatrix is 336x10 and dataSensorCorr is 10,
+    // the most likely intended operation is dataSensorCorr * transpose(correctionMatrix).
+    // This results in a 1x336 vector.
+
+    if (vectorLength != numColsMatrix) {
+      // If the vector length (10) doesn't match the number of columns in the matrix (10),
+      // then the multiplication as a dot product with rows won't work.
+      // This check ensures that dataSensorCorr can be multiplied by each row of the matrix.
+      print("Error: Incompatible dimensions for multiplication.");
+      print("Vector length: $vectorLength");
+      print("Matrix columns: $numColsMatrix");
+      return [];
+    }
+
+    List<double> resultVector = List.filled(
+      numRowsMatrix,
+      0.0,
+    ); // Result will have N elements
+
+    // Perform the multiplication: result[i] = sum(dataSensorCorr[j] * matrix[i][j])
+    for (int i = 0; i < numRowsMatrix; i++) {
+      // Iterate through each row of the matrix (N rows)
+      double sum = 0.0;
+      for (int j = 0; j < numColsMatrix; j++) {
+        // Iterate through each element in the row (M columns)
+        sum += dataSensorCorr[j] * matrix[i][j]; //
+      }
+      resultVector[i] = sum;
+    }
+    return resultVector;
+  }
+
+  static List<double> calculateXYZ(
+    List<double> reconstructedSpectrum,
+    List<double> nStandardValue,
+  ) {
+    if (reconstructedSpectrum.isEmpty) {
+      return List.filled(nStandardValue.length, 0.0);
+    }
+
+    List<double> calculatedXYZ = [];
+    for (int i = 0; i < nStandardValue.length; i++) {
+      calculatedXYZ.add(reconstructedSpectrum[i] * nStandardValue[i]);
+    }
+
+    return calculatedXYZ;
+  }
+
   /// Calculates "Data Sensor (Corr/Nor)" values for each channel.
   /// Data Sensor (Corr/Nor) = Data Sensor (Corr) / max(Data Sensor Corr)
   ///
