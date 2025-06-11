@@ -7,6 +7,8 @@ import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/data_process.dart'; // Import the new data processing service
 import 'package:spectrumapp/services/correction_matrix.dart'; // Import correction_matrix.dart
 
+enum GraphView { rawData, processedData }
+
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
   final VoidCallback toggleFirebaseMode;
@@ -41,6 +43,8 @@ class _HomePageContentState extends State<HomePageContent> {
   List<double> _calculatedX = List.filled(XN.length, 0.0);
   List<double> _calculatedY = List.filled(YN.length, 0.0);
   List<double> _calculatedZ = List.filled(ZN.length, 0.0);
+
+  GraphView _currentGraphView = GraphView.rawData;
 
   final SerialService _serialService = SerialService();
 
@@ -196,6 +200,16 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
+    List<FlSpot> basicCountChartData =
+        _basicCounts.sublist(0, 8).asMap().entries.map((entry) {
+          return FlSpot(entry.key.toDouble() + 1, entry.value);
+        }).toList();
+
+    List<FlSpot> dataSensorCorrChartData =
+        _dataSensorCorr.sublist(0, 8).asMap().entries.map((entry) {
+          return FlSpot(entry.key.toDouble() + 1, entry.value);
+        }).toList();
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -204,7 +218,7 @@ class _HomePageContentState extends State<HomePageContent> {
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
-              margin: const EdgeInsets.all(16.0),
+              margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
                 color: widget.isFirebaseMode ? Colors.green : Colors.blue,
@@ -238,6 +252,70 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentGraphView = GraphView.rawData;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentGraphView == GraphView.rawData
+                              ? Colors.blue
+                              : Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Raw Data',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentGraphView = GraphView.processedData;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentGraphView == GraphView.processedData
+                              ? Colors.blue
+                              : Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Processed Data',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Container(
             margin: const EdgeInsets.only(left: 16.0, right: 16.0),
             padding: const EdgeInsets.all(16.0),
@@ -257,7 +335,19 @@ class _HomePageContentState extends State<HomePageContent> {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: SpectrumChart(chartData: _chartData),
+                child:
+                    _currentGraphView == GraphView.rawData
+                        ? SpectrumChart(
+                          showGraph: true,
+                          colorChartData: _chartData,
+                        ) // Displays Raw F1-F8 data
+                        : SpectrumChart(
+                          showGraph: true,
+                          colorChartData:
+                              basicCountChartData, // Primary line for Basic Count
+                          secondLineData:
+                              dataSensorCorrChartData, // Second line for Data Sensor (Corr)
+                        ),
               ),
             ),
           ),

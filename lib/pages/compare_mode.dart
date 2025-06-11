@@ -7,6 +7,10 @@ import 'package:spectrumapp/services/graph_framework.dart';
 import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/firebase_streamer.dart';
 import 'package:spectrumapp/pages/reference_data.dart'; // Ensure correct import
+import 'package:spectrumapp/services/data_process.dart'; // Import the new data processing service
+
+// Define an enum for the graph view mode in compare page
+enum CompareGraphView { rawData, processedData }
 
 class CompareModePage extends StatefulWidget {
   final bool isFirebaseMode;
@@ -26,15 +30,26 @@ class _CompareModePageState extends State<CompareModePage> {
   // _serialSpectrumData holds the raw 8 Fx values for serial mode's chart
   List<double> _serialSpectrumData = List.filled(8, 0.0);
 
-  // _currentChartData and _referenceChartData are FlSpot lists specifically for F1-F8 for the chart
+  // _currentChartData and _redChartData are FlSpot lists specifically for F1-F8 for the chart
   List<FlSpot> _currentChartData = [];
-  List<FlSpot> _referenceChartData = [];
+  List<FlSpot> _redChartData = [];
 
   // _currentSpectrumValues and _referenceSpectrumValues hold all 10 raw double values (F1-F8, Clear, NIR) for calculations
   List<double> _currentSpectrumValues = List.filled(10, 0.0);
   List<double> _referenceSpectrumValues = List.filled(10, 0.0);
 
+  // Processed data for current measurement
+  List<double> _currentBasicCounts = List.filled(10, 0.0);
+  List<double> _currentDataSensorCorr = List.filled(10, 0.0);
+
+  // Processed data for reference measurement
+  List<double> _referenceBasicCounts = List.filled(10, 0.0);
+  List<double> _referenceDataSensorCorr = List.filled(10, 0.0);
+
   String _referenceTimestamp = "Nothing";
+
+  // State variable to control the graph view in compare mode (Raw Data vs. Processed Data)
+  CompareGraphView _currentCompareGraphView = CompareGraphView.rawData;
 
   final SerialService _serialService = SerialService();
 
@@ -60,11 +75,18 @@ class _CompareModePageState extends State<CompareModePage> {
             10,
             0.0,
           ); // Reset to 10 for serial
-          _referenceChartData = [];
+          _redChartData = [];
           _referenceSpectrumValues = List.filled(
             10,
             0.0,
           ); // Reset to 10 for serial
+          _currentBasicCounts = List.filled(10, 0.0); // Reset processed data
+          _currentDataSensorCorr = List.filled(10, 0.0); // Reset processed data
+          _referenceBasicCounts = List.filled(10, 0.0); // Reset processed data
+          _referenceDataSensorCorr = List.filled(
+            10,
+            0.0,
+          ); // Reset processed data
           _referenceTimestamp = "Nothing";
         });
       } else {
@@ -87,6 +109,12 @@ class _CompareModePageState extends State<CompareModePage> {
         ); // If serial sends 8, this will be 8. Extend or handle as needed.
         // For serial, _currentChartData is directly derived from _serialSpectrumData in build method.
         // No need to set _currentChartData explicitly here for serial mode.
+
+        // Calculate processed data for current serial measurement
+        _currentBasicCounts = DataProcessor.calculateBasicCount(spektrumData);
+        _currentDataSensorCorr = DataProcessor.calculateDataSensorCorr(
+          _currentBasicCounts,
+        );
       });
     }
   }
@@ -118,15 +146,27 @@ class _CompareModePageState extends State<CompareModePage> {
                     return FlSpot(entry.key.toDouble() + 1, entry.value);
                   })
                   .toList();
+
+          // Calculate processed data for current Firebase measurement
+          _currentBasicCounts = DataProcessor.calculateBasicCount(
+            rawSpectrumData,
+          );
+          _currentDataSensorCorr = DataProcessor.calculateDataSensorCorr(
+            _currentBasicCounts,
+          );
         } else {
           _currentSpectrumValues = List.filled(10, 0.0);
           _currentChartData = [];
+          _currentBasicCounts = List.filled(10, 0.0); // Reset
+          _currentDataSensorCorr = List.filled(10, 0.0); // Reset
         }
       });
     } else {
       setState(() {
         _currentSpectrumValues = List.filled(10, 0.0);
         _currentChartData = [];
+        _currentBasicCounts = List.filled(10, 0.0); // Reset
+        _currentDataSensorCorr = List.filled(10, 0.0); // Reset
       });
     }
   }
@@ -149,8 +189,17 @@ class _CompareModePageState extends State<CompareModePage> {
                   .split(',')
                   .map((e) => double.parse(e))
                   .toList(); // Store all 10 for calculations
-          // Only map F1 to F8 (first 8 elements) for the reference chart display
-          _referenceChartData =
+
+          // Calculate processed data for the selected reference measurement
+          _referenceBasicCounts = DataProcessor.calculateBasicCount(
+            _referenceSpectrumValues,
+          );
+          _referenceDataSensorCorr = DataProcessor.calculateDataSensorCorr(
+            _referenceBasicCounts,
+          );
+
+          // _redChartData for raw data view (first 8 values)
+          _redChartData =
               _referenceSpectrumValues
                   .sublist(0, min(8, _referenceSpectrumValues.length))
                   .asMap()
@@ -161,7 +210,9 @@ class _CompareModePageState extends State<CompareModePage> {
                   .toList();
         } else {
           _referenceSpectrumValues = List.filled(10, 0.0);
-          _referenceChartData = [];
+          _redChartData = [];
+          _referenceBasicCounts = List.filled(10, 0.0); // Reset
+          _referenceDataSensorCorr = List.filled(10, 0.0); // Reset
         }
         _referenceTimestamp = DateFormat(
           'yyyy-MM-dd HH:mm:ss',
@@ -170,65 +221,78 @@ class _CompareModePageState extends State<CompareModePage> {
     } else {
       setState(() {
         _referenceSpectrumValues = List.filled(10, 0.0);
-        _referenceChartData = [];
+        _redChartData = [];
+        _referenceBasicCounts = List.filled(10, 0.0); // Reset
+        _referenceDataSensorCorr = List.filled(10, 0.0); // Reset
         _referenceTimestamp = "Nothing";
       });
     }
   }
 
-  String _calculateDeltaAvg() {
+  // Modified _calculateDeltaAvg to use selected data mode
+  double _calculateDeltaAvg(
+    List<double> currentData,
+    List<double> referenceData,
+  ) {
     // Ensure calculation only uses F1-F8
-    if (_currentSpectrumValues.isEmpty ||
-        _referenceSpectrumValues.isEmpty ||
-        _currentSpectrumValues.length < 8 ||
-        _referenceSpectrumValues.length < 8) {
-      return "N/A";
+    if (currentData.isEmpty ||
+        referenceData.isEmpty ||
+        currentData.length < 8 ||
+        referenceData.length < 8) {
+      return 0.0; // Return 0.0 or handle as an error
     }
 
     double totalDelta = 0.0;
     for (int i = 0; i < 8; i++) {
       // Loop only up to 8 for F1-F8
-      totalDelta += (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
+      totalDelta += (currentData[i] - referenceData[i]);
     }
-    return (totalDelta / 8).toStringAsFixed(1);
+    return (totalDelta / 8);
   }
 
-  String _calculateDeltaHighest() {
+  // Modified _calculateDeltaHighest to use selected data mode
+  double _calculateDeltaHighest(
+    List<double> currentData,
+    List<double> referenceData,
+  ) {
     // Ensure calculation only uses F1-F8
-    if (_currentSpectrumValues.isEmpty ||
-        _referenceSpectrumValues.isEmpty ||
-        _currentSpectrumValues.length < 8 ||
-        _referenceSpectrumValues.length < 8) {
-      return "N/A";
+    if (currentData.isEmpty ||
+        referenceData.isEmpty ||
+        currentData.length < 8 ||
+        referenceData.length < 8) {
+      return 0.0; // Return 0.0 or handle as an error
     }
 
-    String highestInfo = "";
     double maxDeltaFx = 0.0;
-    int maxDeltaFxIndex = -1;
+    // Track if any meaningful delta was found to avoid showing "N/A" for empty data
+    bool hasMeaningfulDelta = false;
+
     for (int i = 0; i < 8; i++) {
       // Loop only up to 8 for F1-F8
-      double deltaFx =
-          (_currentSpectrumValues[i] - _referenceSpectrumValues[i]);
-      if (deltaFx.abs() > maxDeltaFx.abs()) {
+      double deltaFx = (currentData[i] - referenceData[i]);
+      if (!hasMeaningfulDelta || deltaFx.abs() > maxDeltaFx.abs()) {
         maxDeltaFx = deltaFx;
-        maxDeltaFxIndex = i + 1;
+        hasMeaningfulDelta = true;
       }
     }
-    highestInfo = " (${maxDeltaFxIndex != -1 ? 'F$maxDeltaFxIndex' : 'N/A'})";
-    return "${maxDeltaFx.toStringAsFixed(1)}$highestInfo";
+    return maxDeltaFx;
   }
 
-  String _calculateDeltaFx(int index) {
+  // Modified _calculateDeltaFx to use selected data mode
+  double _calculateDeltaFx(
+    int index,
+    List<double> currentData,
+    List<double> referenceData,
+  ) {
     if (index < 0 ||
-        index >= _currentSpectrumValues.length ||
-        index >= _referenceSpectrumValues.length ||
-        _currentSpectrumValues.isEmpty ||
-        _referenceSpectrumValues.isEmpty) {
-      return "N/A";
+        index >= currentData.length ||
+        index >= referenceData.length ||
+        currentData.isEmpty ||
+        referenceData.isEmpty) {
+      return 0.0; // Return 0.0 or handle as an error
     }
-    double delta =
-        _currentSpectrumValues[index] - _referenceSpectrumValues[index];
-    return delta.toStringAsFixed(1);
+    double delta = currentData[index] - referenceData[index];
+    return delta;
   }
 
   @override
@@ -242,12 +306,79 @@ class _CompareModePageState extends State<CompareModePage> {
 
   @override
   Widget build(BuildContext context) {
-    List<FlSpot> displayedChartData =
-        widget.isFirebaseMode
-            ? _currentChartData
-            : _serialSpectrumData.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble() + 1, entry.value);
-            }).toList();
+    List<FlSpot> currentChartDataForDisplay;
+    List<FlSpot> referenceChartDataForDisplay;
+
+    // Determine which data lists to use for calculation and display based on the selected mode
+    List<double> currentDataForCalculation;
+    List<double> referenceDataForCalculation;
+
+    // Determine the number of decimal places for display
+    int decimalPlaces =
+        _currentCompareGraphView == CompareGraphView.processedData ? 3 : 1;
+
+    if (_currentCompareGraphView == CompareGraphView.rawData) {
+      // For raw data view, the chart displays F1-F8 from _serialSpectrumData (for serial)
+      // or _currentChartData (for firebase)
+      currentChartDataForDisplay =
+          widget.isFirebaseMode
+              ? _currentChartData
+              : _serialSpectrumData.asMap().entries.map((entry) {
+                return FlSpot(entry.key.toDouble() + 1, entry.value);
+              }).toList();
+
+      // For raw data, _redChartData is already populated with raw reference data
+      referenceChartDataForDisplay = _redChartData;
+
+      currentDataForCalculation = _currentSpectrumValues;
+      referenceDataForCalculation = _referenceSpectrumValues;
+    } else {
+      // For processed data view, the chart displays Basic Counts for current data
+      // and Data Sensor (Corr) for reference data
+      currentChartDataForDisplay =
+          _currentBasicCounts.sublist(0, 8).asMap().entries.map((entry) {
+            return FlSpot(entry.key.toDouble() + 1, entry.value);
+          }).toList();
+
+      referenceChartDataForDisplay =
+          _referenceDataSensorCorr.sublist(0, 8).asMap().entries.map((entry) {
+            return FlSpot(entry.key.toDouble() + 1, entry.value);
+          }).toList();
+
+      currentDataForCalculation = _currentDataSensorCorr;
+      referenceDataForCalculation = _referenceDataSensorCorr;
+    }
+
+    // Calculate delta values
+    double deltaAvg = _calculateDeltaAvg(
+      currentDataForCalculation,
+      referenceDataForCalculation,
+    );
+    double deltaHighest = _calculateDeltaHighest(
+      currentDataForCalculation,
+      referenceDataForCalculation,
+    );
+
+    String highestInfo = "";
+    if (currentDataForCalculation.isNotEmpty &&
+        referenceDataForCalculation.isNotEmpty &&
+        currentDataForCalculation.length >= 8 &&
+        referenceDataForCalculation.length >= 8) {
+      double maxDeltaFxVal = 0.0;
+      int maxDeltaFxIndex = -1;
+      bool hasMeaningfulDelta = false;
+
+      for (int i = 0; i < 8; i++) {
+        double deltaFx =
+            (currentDataForCalculation[i] - referenceDataForCalculation[i]);
+        if (!hasMeaningfulDelta || deltaFx.abs() > maxDeltaFxVal.abs()) {
+          maxDeltaFxVal = deltaFx;
+          maxDeltaFxIndex = i + 1;
+          hasMeaningfulDelta = true;
+        }
+      }
+      highestInfo = " (${maxDeltaFxIndex != -1 ? 'F$maxDeltaFxIndex' : 'N/A'})";
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -291,6 +422,73 @@ class _CompareModePageState extends State<CompareModePage> {
               ),
             ),
           ),
+          // Add the Raw Data / Processed Data toggle buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentCompareGraphView = CompareGraphView.rawData;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentCompareGraphView == CompareGraphView.rawData
+                              ? Colors.blue
+                              : Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Raw Data',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentCompareGraphView =
+                            CompareGraphView.processedData;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentCompareGraphView ==
+                                  CompareGraphView.processedData
+                              ? Colors.blue
+                              : Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Processed Data',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Container(
             margin: const EdgeInsets.only(left: 16.0, right: 16.0),
             padding: const EdgeInsets.all(16.0),
@@ -311,8 +509,9 @@ class _CompareModePageState extends State<CompareModePage> {
                 height: 300,
                 width: double.infinity,
                 child: SpectrumChart(
-                  chartData: displayedChartData,
-                  referenceChartData: _referenceChartData,
+                  showGraph: true,
+                  colorChartData: currentChartDataForDisplay,
+                  redChartData: referenceChartDataForDisplay,
                 ),
               ),
             ),
@@ -386,17 +585,12 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.add_chart, color: Colors.blue),
                       Text(
-                        _calculateDeltaAvg(),
+                        deltaAvg.toStringAsFixed(decimalPlaces),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                           color:
-                              double.tryParse(
-                                        _calculateDeltaAvg(),
-                                      )?.isNegative ==
-                                      true
-                                  ? Colors.red
-                                  : Colors.green,
+                              deltaAvg.isNegative ? Colors.red : Colors.green,
                         ),
                       ),
                       const Text(
@@ -434,15 +628,12 @@ class _CompareModePageState extends State<CompareModePage> {
                     children: [
                       const Icon(Icons.trending_up, color: Colors.blue),
                       Text(
-                        _calculateDeltaHighest(),
+                        "${deltaHighest.toStringAsFixed(decimalPlaces)}$highestInfo",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                           color:
-                              double.tryParse(
-                                        _calculateDeltaHighest().split(' ')[0],
-                                      )?.isNegative ==
-                                      true
+                              deltaHighest.isNegative
                                   ? Colors.red
                                   : Colors.green,
                         ),
@@ -522,14 +713,19 @@ class _CompareModePageState extends State<CompareModePage> {
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Text(
-                          _calculateDeltaFx(i),
+                          _calculateDeltaFx(
+                            i,
+                            currentDataForCalculation,
+                            referenceDataForCalculation,
+                          ).toStringAsFixed(decimalPlaces),
                           style: TextStyle(
                             fontSize: 16,
                             color:
-                                double.tryParse(
-                                          _calculateDeltaFx(i),
-                                        )?.isNegative ==
-                                        true
+                                _calculateDeltaFx(
+                                      i,
+                                      currentDataForCalculation,
+                                      referenceDataForCalculation,
+                                    ).isNegative
                                     ? Colors.red
                                     : Colors.green,
                           ),

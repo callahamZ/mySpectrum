@@ -3,15 +3,21 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class SpectrumChart extends StatelessWidget {
-  final List<FlSpot> chartData;
-  final List<FlSpot>? referenceChartData; // New: Optional reference data
+  final bool showGraph;
+  final List<FlSpot>? colorChartData;
+  final List<FlSpot>? redChartData; // New: Optional reference data
+  final List<FlSpot>? secondLineData;
+  final List<FlSpot>? thirdLineData;
   final double? maxY; // Optional maxY if external control is desired
 
   const SpectrumChart({
     Key? key,
-    required this.chartData,
-    this.referenceChartData, // Include in constructor
-    this.maxY, // Include in constructor
+    required this.showGraph,
+    this.colorChartData,
+    this.redChartData,
+    this.secondLineData,
+    this.thirdLineData,
+    this.maxY,
   }) : super(key: key);
 
   // Helper function to calculate appropriate maxY based on data
@@ -28,7 +34,16 @@ class SpectrumChart extends StatelessWidget {
 
     double maxValue = allValues.reduce(max);
 
-    const maxList = [1000.0, 5000.0, 10000.0, 25000.0, 50000.0, 70000.0];
+    const maxList = [
+      0.5,
+      1.0,
+      1000.0,
+      5000.0,
+      10000.0,
+      25000.0,
+      50000.0,
+      70000.0,
+    ];
     double calculatedMaxY = 1000.0;
     for (var maxPoints in maxList) {
       if (maxValue < maxPoints) {
@@ -43,7 +58,7 @@ class SpectrumChart extends StatelessWidget {
   Widget build(BuildContext context) {
     // Determine the actual maxY for the chart
     final double chartMaxY =
-        maxY ?? _calculateDynamicMaxY(chartData, referenceChartData);
+        maxY ?? _calculateDynamicMaxY(colorChartData!, redChartData);
 
     return LineChart(
       LineChartData(
@@ -97,45 +112,46 @@ class SpectrumChart extends StatelessWidget {
         minY: 0,
         maxY: chartMaxY, // Use the determined maxY
         lineBarsData: [
-          // Current Data Line - Re-applied provided gradient settings
-          LineChartBarData(
-            spots: chartData,
-            isCurved: true,
-            barWidth: 2, // Adjusted barWidth as per your snippet
-            color: Colors.black, // Set line color to black as per your snippet
-            dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: const LinearGradient(
-                colors: [
-                  Color.fromRGBO(111, 47, 159, 0.8),
-                  Color.fromRGBO(0, 31, 95, 0.8),
-                  Color.fromRGBO(63, 146, 207, 0.8),
-                  Color.fromRGBO(0, 175, 239, 0.8),
-                  Color.fromRGBO(0, 175, 80, 0.8),
-                  Color.fromRGBO(255, 255, 0, 0.8),
-                  Color.fromRGBO(247, 149, 70, 0.8),
-                  Color.fromRGBO(255, 0, 0, 0.8),
-                ],
-                stops: [
-                  0,
-                  0.14285714285714285,
-                  0.2857142857142857,
-                  0.42857142857142855,
-                  0.5714285714285714,
-                  0.7142857142857143,
-                  0.8571428571428571,
-                  1,
-                ],
-                begin: Alignment.bottomLeft,
-                end: Alignment.bottomRight,
+          if (colorChartData != null && colorChartData!.isNotEmpty)
+            LineChartBarData(
+              spots: colorChartData!,
+              isCurved: true,
+              barWidth: 2, // Adjusted barWidth as per your snippet
+              color:
+                  Colors.black, // Set line color to black as per your snippet
+              dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: const LinearGradient(
+                  colors: [
+                    Color.fromRGBO(111, 47, 159, 0.8),
+                    Color.fromRGBO(0, 31, 95, 0.8),
+                    Color.fromRGBO(63, 146, 207, 0.8),
+                    Color.fromRGBO(0, 175, 239, 0.8),
+                    Color.fromRGBO(0, 175, 80, 0.8),
+                    Color.fromRGBO(255, 255, 0, 0.8),
+                    Color.fromRGBO(247, 149, 70, 0.8),
+                    Color.fromRGBO(255, 0, 0, 0.8),
+                  ],
+                  stops: [
+                    0,
+                    0.14285714285714285,
+                    0.2857142857142857,
+                    0.42857142857142855,
+                    0.5714285714285714,
+                    0.7142857142857143,
+                    0.8571428571428571,
+                    1,
+                  ],
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
             ),
-          ),
           // Reference Data Line
-          if (referenceChartData != null && referenceChartData!.isNotEmpty)
+          if (redChartData != null && redChartData!.isNotEmpty)
             LineChartBarData(
-              spots: referenceChartData!,
+              spots: redChartData!,
               isCurved: true,
               color: Colors.red, // Distinct color for reference data
               barWidth: 2,
@@ -145,6 +161,30 @@ class SpectrumChart extends StatelessWidget {
                 show: false,
               ), // Reference data does not have area
               dashArray: [5, 5], // Dashed line for distinction
+            ),
+          if (secondLineData != null && secondLineData!.isNotEmpty)
+            LineChartBarData(
+              spots: secondLineData!,
+              isCurved: true,
+              color: Colors.red, // Distinct color for Basic Count
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: FlDotData(show: true),
+              belowBarData: BarAreaData(show: false),
+            ),
+          // Third Line Data (e.g., Data Sensor Corr on Home Page)
+          if (thirdLineData != null && thirdLineData!.isNotEmpty)
+            LineChartBarData(
+              spots: thirdLineData!,
+              isCurved: true,
+              color:
+                  Colors
+                      .purple
+                      .shade700, // Distinct color for Data Sensor (Corr)
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: FlDotData(show: true),
+              belowBarData: BarAreaData(show: false),
             ),
         ],
       ),
