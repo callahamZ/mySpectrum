@@ -6,8 +6,9 @@ import 'package:spectrumapp/services/firebase_streamer.dart';
 import 'package:spectrumapp/services/database_service.dart';
 import 'package:spectrumapp/services/data_process.dart'; // Import the new data processing service
 import 'package:spectrumapp/services/correction_matrix.dart'; // Import correction_matrix.dart
+import 'dart:math'; // Import for math functions like sum, if needed. For now, manual sum is fine.
 
-enum GraphView { rawData, processedData }
+enum GraphView { rawData, processedData, cieData } // Added cieData
 
 class HomePageContent extends StatefulWidget {
   final bool isFirebaseMode;
@@ -44,6 +45,18 @@ class _HomePageContentState extends State<HomePageContent> {
   List<double> _calculatedY = List.filled(YN.length, 0.0);
   List<double> _calculatedZ = List.filled(ZN.length, 0.0);
 
+  // New variables for CIE 1931 calculations
+  double _cieX = 0.0;
+  double _cieY = 0.0;
+  double _cieZ = 0.0;
+  String _cieSmallX = "N/A";
+  String _cieSmallY = "N/A";
+  String _cieSmallZ = "N/A";
+  String _spectralLux = "N/A";
+
+  // New list to store CIE chart spots
+  List<FlSpot> _cieChartSpots = [];
+
   GraphView _currentGraphView = GraphView.rawData;
 
   final SerialService _serialService = SerialService();
@@ -76,6 +89,14 @@ class _HomePageContentState extends State<HomePageContent> {
             correctionMatrix.length,
             0.0,
           ); // Clear final data
+          _cieX = 0.0;
+          _cieY = 0.0;
+          _cieZ = 0.0;
+          _cieSmallX = "N/A";
+          _cieSmallY = "N/A";
+          _cieSmallZ = "N/A";
+          _spectralLux = "N/A";
+          _cieChartSpots = []; // Clear CIE chart data
         });
       } else {
         _serialService.onDataReceived = null; // Stop serial listening
@@ -92,14 +113,19 @@ class _HomePageContentState extends State<HomePageContent> {
   ) {
     if (mounted && !widget.isFirebaseMode) {
       setState(() {
-        // Assuming spektrumData will now contain 10 values (F1-F8, Clear, NIR) from serial.
-        // If your serial data only sends 8, you'll need to decide how to handle Clear/NIR.
+        // Apply linear regression to temperature and lux
+        double processedTemperature = DataProcessor.processTemperature(
+          temperature,
+        );
+        double processedLux = DataProcessor.processLux(lux);
+
+        // Assuming spektrumData will now contain 10 values (F1-F8, Clear, NIR).
         _chartData =
             spektrumData.sublist(0, 8).asMap().entries.map((entry) {
               return FlSpot(entry.key.toDouble() + 1, entry.value);
             }).toList();
-        _temperature = temperature.toStringAsFixed(1);
-        _lux = lux.toStringAsFixed(1);
+        _temperature = processedTemperature.toStringAsFixed(1);
+        _lux = processedLux.toStringAsFixed(1);
 
         _basicCounts = DataProcessor.calculateBasicCount(spektrumData);
         _dataSensorCorr = DataProcessor.calculateDataSensorCorr(_basicCounts);
@@ -112,6 +138,43 @@ class _HomePageContentState extends State<HomePageContent> {
           _dataSensorCorr,
           correctionMatrix,
         ); // Perform the multiplication
+
+        _calculatedX = DataProcessor.calculateXYZ(_finalCorrectedData, XN);
+        _calculatedY = DataProcessor.calculateXYZ(_finalCorrectedData, YN);
+        _calculatedZ = DataProcessor.calculateXYZ(_finalCorrectedData, ZN);
+
+        // Calculate CIE 1931 values
+        _cieX = _calculatedX.fold(0.0, (sum, item) => sum + item);
+        _cieY = _calculatedY.fold(0.0, (sum, item) => sum + item);
+        _cieZ = _calculatedZ.fold(0.0, (sum, item) => sum + item);
+
+        double sumXYZ = _cieX + _cieY + _cieZ;
+        if (sumXYZ > 0) {
+          _cieSmallX = (_cieX / sumXYZ).toStringAsFixed(4);
+          _cieSmallY = (_cieY / sumXYZ).toStringAsFixed(4);
+          _cieSmallZ = (_cieZ / sumXYZ).toStringAsFixed(4);
+        } else {
+          _cieSmallX = "0.0000";
+          _cieSmallY = "0.0000";
+          _cieSmallZ = "0.0000";
+        }
+        _spectralLux = (_cieY * 683).toStringAsFixed(2);
+
+        // Add the current CIE point to the list for the graph
+        if (_cieSmallX != "N/A" && _cieSmallY != "N/A") {
+          try {
+            double x = double.parse(_cieSmallX);
+            double y = double.parse(_cieSmallY);
+            _cieChartSpots.add(FlSpot(x, y));
+            // Optional: Limit the number of points in _cieChartSpots to keep the graph manageable
+            if (_cieChartSpots.length > 50) {
+              // Keep last 50 points
+              _cieChartSpots.removeAt(0);
+            }
+          } catch (e) {
+            print("Error parsing CIE x,y values: $e");
+          }
+        }
       });
     }
   }
@@ -137,14 +200,22 @@ class _HomePageContentState extends State<HomePageContent> {
         } else {
           _chartData = [];
         }
-        _temperature =
-            (latestMeasurement[DatabaseHelper.columnTemperature] as double?)
-                ?.toStringAsFixed(1) ??
-            "N/A";
-        _lux =
-            (latestMeasurement[DatabaseHelper.columnLux] as double?)
-                ?.toStringAsFixed(1) ??
-            "N/A";
+
+        // Retrieve raw temperature and lux values
+        double rawTemperature =
+            (latestMeasurement[DatabaseHelper.columnTemperature] as double?) ??
+            0.0;
+        double rawLux =
+            (latestMeasurement[DatabaseHelper.columnLux] as double?) ?? 0.0;
+
+        // Apply linear regression to temperature and lux
+        double processedTemperature = DataProcessor.processTemperature(
+          rawTemperature,
+        );
+        double processedLux = DataProcessor.processLux(rawLux);
+
+        _temperature = processedTemperature.toStringAsFixed(1);
+        _lux = processedLux.toStringAsFixed(1);
 
         _basicCounts = DataProcessor.calculateBasicCount(rawSpectrumData);
         _dataSensorCorr = DataProcessor.calculateDataSensorCorr(_basicCounts);
@@ -161,6 +232,39 @@ class _HomePageContentState extends State<HomePageContent> {
         _calculatedX = DataProcessor.calculateXYZ(_finalCorrectedData, XN);
         _calculatedY = DataProcessor.calculateXYZ(_finalCorrectedData, YN);
         _calculatedZ = DataProcessor.calculateXYZ(_finalCorrectedData, ZN);
+
+        // Calculate CIE 1931 values
+        _cieX = _calculatedX.fold(0.0, (sum, item) => sum + item);
+        _cieY = _calculatedY.fold(0.0, (sum, item) => sum + item);
+        _cieZ = _calculatedZ.fold(0.0, (sum, item) => sum + item);
+
+        double sumXYZ = _cieX + _cieY + _cieZ;
+        if (sumXYZ > 0) {
+          _cieSmallX = (_cieX / sumXYZ).toStringAsFixed(4);
+          _cieSmallY = (_cieY / sumXYZ).toStringAsFixed(4);
+          _cieSmallZ = (_cieZ / sumXYZ).toStringAsFixed(4);
+        } else {
+          _cieSmallX = "0.0000";
+          _cieSmallY = "0.0000";
+          _cieSmallZ = "0.0000";
+        }
+        _spectralLux = (_cieY * 683).toStringAsFixed(2);
+
+        // Add the current CIE point to the list for the graph
+        if (_cieSmallX != "N/A" && _cieSmallY != "N/A") {
+          try {
+            double x = double.parse(_cieSmallX);
+            double y = double.parse(_cieSmallY);
+            _cieChartSpots.add(FlSpot(x, y));
+            // Optional: Limit the number of points in _cieChartSpots to keep the graph manageable
+            if (_cieChartSpots.length > 50) {
+              // Keep last 50 points
+              _cieChartSpots.removeAt(0);
+            }
+          } catch (e) {
+            print("Error parsing CIE x,y values: $e");
+          }
+        }
       });
     } else {
       setState(() {
@@ -174,6 +278,14 @@ class _HomePageContentState extends State<HomePageContent> {
           correctionMatrix.length,
           0.0,
         ); // Clear final data
+        _cieX = 0.0;
+        _cieY = 0.0;
+        _cieZ = 0.0;
+        _cieSmallX = "N/A";
+        _cieSmallY = "N/A";
+        _cieSmallZ = "N/A";
+        _spectralLux = "N/A";
+        _cieChartSpots = []; // Clear CIE chart data
       });
     }
   }
@@ -305,7 +417,34 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     child: const Text(
-                      'Processed Data',
+                      'Calc Data',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10), // Add spacing for the new button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentGraphView = GraphView.cieData;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentGraphView == GraphView.cieData
+                              ? Colors.blue
+                              : Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'CIE 1931',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -341,12 +480,47 @@ class _HomePageContentState extends State<HomePageContent> {
                           showGraph: true,
                           colorChartData: _chartData,
                         ) // Displays Raw F1-F8 data
-                        : SpectrumChart(
+                        : _currentGraphView == GraphView.processedData
+                        ? SpectrumChart(
                           showGraph: true,
                           colorChartData:
                               basicCountChartData, // Primary line for Basic Count
                           secondLineData:
                               dataSensorCorrChartData, // Second line for Data Sensor (Corr)
+                        )
+                        : Stack(
+                          // Use Stack to layer image and chart
+                          children: [
+                            // Background image for CIE 1931 chart
+                            Positioned.fill(
+                              child: Image.asset(
+                                // This is a placeholder URL. Replace it with your actual asset path.
+                                // For local assets, use Image.asset('assets/images/CIE1931_bg.png')
+                                // Make sure to declare your assets in pubspec.yaml
+                                'assets/CIE1931_bg.png',
+                                fit: BoxFit.fitWidth,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Text(
+                                      'Error loading image',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            // SpectrumChart on top
+                            SpectrumChart(
+                              showGraph: true,
+                              thirdLineData:
+                                  _cieChartSpots, // Pass the list of CIE spots to thirdLineData
+                              minXOverride: 0.0,
+                              maxXOverride: 0.8,
+                              minYOverride: 0.0,
+                              maxYOverride: 0.9,
+                              isCIEChart: true, // Indicate it's a CIE chart
+                            ),
+                          ],
                         ),
               ),
             ),
@@ -776,7 +950,7 @@ class _HomePageContentState extends State<HomePageContent> {
                               verticalAlignment:
                                   TableCellVerticalAlignment.middle,
                               child: Padding(
-                                padding: EdgeInsets.all(8.0),
+                                padding: const EdgeInsets.all(8.0),
                                 child: Text(
                                   "Z",
                                   style: TextStyle(
@@ -829,6 +1003,152 @@ class _HomePageContentState extends State<HomePageContent> {
                       ],
                     ),
                   ),
+                ),
+              ],
+            ),
+          ),
+          // New section for CIE 1931 Calculated Values
+          Container(
+            margin: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              top: 8.0,
+              bottom: 16.0,
+            ),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(50, 0, 0, 0),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "CIE 1931 Calculated Values",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 8.0),
+                Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(1), // Label
+                    1: FlexColumnWidth(1), // Value
+                  },
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  children: [
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Sum X:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieX.toStringAsFixed(5)),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Sum Y:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieY.toStringAsFixed(5)),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Sum Z:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieZ.toStringAsFixed(5)),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "x:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieSmallX),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "y:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieSmallY),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "z:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(_cieSmallZ),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Spectral Lux:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text("$_spectralLux lm"),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),

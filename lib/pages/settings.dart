@@ -14,17 +14,55 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedBaudRate = '115200';
   final List<String> _baudRates = ['9600', '115200', '19200'];
   final SerialService _serialService = SerialService();
+  final List<String> _rawDataBuffer = []; // Buffer to store raw serial data
+  final int _maxBufferLines = 100; // Limit the number of lines in the buffer
+
+  // Controllers for Wi-Fi parameters
+  final TextEditingController _ssidController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  // Controllers for AS7341 sensor parameters
+  final TextEditingController _aTimeController = TextEditingController();
+  final TextEditingController _aStepController = TextEditingController();
+  String? _selectedGain = '256x'; // Default gain setting
+  final List<String> _gainOptions = [
+    '0.5x',
+    '1x',
+    '2x',
+    '4x',
+    '8x',
+    '16x',
+    '32x',
+    '64x',
+    '128x',
+    '256x',
+    '512x',
+  ];
 
   @override
   void initState() {
     super.initState();
     _refreshSerialPortList();
+    // Set the callback to receive raw data
+    _serialService.onRawDataReceived = (String rawData) {
+      setState(() {
+        _rawDataBuffer.add(rawData);
+        // Keep the buffer size in check
+        if (_rawDataBuffer.length > _maxBufferLines) {
+          _rawDataBuffer.removeAt(0);
+        }
+      });
+    };
   }
 
   @override
   void dispose() {
     // Remove the callback when the widget is disposed
     _serialService.onRawDataReceived = null;
+    _ssidController.dispose(); // Dispose Wi-Fi controllers
+    _passwordController.dispose();
+    _aTimeController.dispose(); // Dispose AS7341 controllers
+    _aStepController.dispose();
     super.dispose();
   }
 
@@ -43,6 +81,9 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Serial port connected.')));
+      setState(() {
+        // Update the UI after connection status changes
+      });
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -53,7 +94,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _disconnectFromSerial() async {
     try {
       await _serialService.disconnectSerial();
-      setState(() {});
+      setState(() {
+        // Clear the raw data buffer when disconnected
+        _rawDataBuffer.clear();
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Serial port disconnected')));
@@ -62,6 +106,28 @@ class _SettingsPageState extends State<SettingsPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error disconnecting: $e')));
     }
+  }
+
+  // Placeholder function for setting Wi-Fi parameters
+  void _setWifiParameters() {
+    // This function currently does nothing, as requested.
+    print(
+      'SSID: ${_ssidController.text}, Password: ${_passwordController.text}',
+    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Wi-Fi parameters set')));
+  }
+
+  // Placeholder function for setting AS7341 parameters
+  void _setAS7341Parameters() {
+    // This function currently does nothing, as requested.
+    print(
+      'ATime: ${_aTimeController.text}, AStep: ${_aStepController.text}, Gain: $_selectedGain',
+    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('AS7341 parameters set')));
   }
 
   @override
@@ -82,7 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Expanded(
                   flex: 4,
                   child: Container(
-                    margin: EdgeInsets.only(top: 8),
+                    margin: const EdgeInsets.only(top: 8),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 10,
@@ -112,7 +178,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 "Available Ports",
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              Divider(),
+                              const Divider(),
                               FutureBuilder<List<UsbDevice>>(
                                 future: _serialPortListFuture,
                                 builder: (context, snapshot) {
@@ -149,7 +215,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               builder: (context, constraints) {
                                 return Container(
                                   padding: const EdgeInsets.all(10),
-                                  margin: EdgeInsets.only(left: 16),
+                                  margin: const EdgeInsets.only(left: 16),
                                   decoration: BoxDecoration(
                                     color: Colors.blue,
                                     borderRadius: BorderRadius.circular(10),
@@ -173,8 +239,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             Container(
-              margin: EdgeInsets.only(left: 8, top: 4),
-              child: Text(
+              margin: const EdgeInsets.only(left: 8, top: 4),
+              child: const Text(
                 "*Koneksi OTG harus diaktifkan di pengaturan smartphone",
                 style: TextStyle(fontSize: 10),
               ),
@@ -198,11 +264,11 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               child: Row(
                 children: [
-                  Text(
+                  const Text(
                     "Baud Rate :",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButton<String>(
                       value: _selectedBaudRate,
@@ -234,7 +300,7 @@ class _SettingsPageState extends State<SettingsPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     _serialService.serialStatus ? Colors.red : Colors.blue,
-                foregroundColor: Colors.white, // Background color
+                foregroundColor: Colors.white, // Text color
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.0), // Border radius
                 ),
@@ -245,10 +311,232 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               child: Text(
                 _serialService.serialStatus ? "Disconnect" : "Connect",
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
+
+            // New section for Wi-Fi Parameters
+            const Padding(
+              padding: EdgeInsets.only(top: 16.0, bottom: 8.0),
+              child: Text(
+                "Wi-Fi Parameters",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.0),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromARGB(50, 0, 0, 0),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _ssidController,
+                    decoration: const InputDecoration(
+                      labelText: 'SSID',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true, // Hide password input
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed:
+                        _setWifiParameters, // Call the placeholder function
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      "Set",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // New section for AS7341 Sensor Parameters
+            const Padding(
+              padding: EdgeInsets.only(top: 16.0, bottom: 8.0),
+              child: Text(
+                "AS7341 Sensor Parameters",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.0),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromARGB(50, 0, 0, 0),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _aTimeController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Set ATime',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _aStepController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Set AStep',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text(
+                        "Set Gain:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButton<String>(
+                          value: _selectedGain,
+                          isExpanded: true,
+                          items:
+                              _gainOptions.map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedGain = newValue!;
+                            });
+                          },
+                          hint: const Text("Select Gain"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed:
+                        _setAS7341Parameters, // Call the placeholder function
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      "Set",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // New container for raw serial data
+            const Padding(
+              padding: EdgeInsets.only(top: 20.0, bottom: 10.0),
+              child: Text(
+                "Raw Serial Data",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
+            Container(
+              height: 200, // Fixed height for the raw data display
+              width: double.infinity,
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.black, // Dark background for contrast
+                borderRadius: BorderRadius.circular(10.0),
+                border: Border.all(color: Colors.grey),
+              ),
+              child: ListView.builder(
+                reverse: true, // Show the latest data at the bottom
+                itemCount: _rawDataBuffer.length,
+                itemBuilder: (context, index) {
+                  return Text(
+                    _rawDataBuffer[_rawDataBuffer.length -
+                        1 -
+                        index], // Display in reverse order
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 12,
+                    ),
+                  );
+                },
               ),
             ),
           ],

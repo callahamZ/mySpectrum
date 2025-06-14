@@ -168,4 +168,14 @@ class DataProcessor {
       return value / maxDataSensorCorr;
     }).toList();
   }
+
+  /// Applies linear regression to raw temperature data.
+  static double processTemperature(double rawTemperature) {
+    return 1.3605 + 0.9691 * rawTemperature;
+  }
+
+  /// Applies linear regression to raw lux data.
+  static double processLux(double rawLux) {
+    return -3.563 + 0.2144 * rawLux;
+  }
 }

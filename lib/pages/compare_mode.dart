@@ -46,7 +46,7 @@ class _CompareModePageState extends State<CompareModePage> {
   List<double> _referenceBasicCounts = List.filled(10, 0.0);
   List<double> _referenceDataSensorCorr = List.filled(10, 0.0);
 
-  String _referenceTimestamp = "Nothing";
+  String _referenceTimestamp = "Click to Select";
 
   // State variable to control the graph view in compare mode (Raw Data vs. Processed Data)
   CompareGraphView _currentCompareGraphView = CompareGraphView.rawData;
@@ -388,7 +388,7 @@ class _CompareModePageState extends State<CompareModePage> {
           GestureDetector(
             onTap: widget.toggleFirebaseMode,
             child: Container(
-              margin: const EdgeInsets.all(16.0),
+              margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
                 color: widget.isFirebaseMode ? Colors.green : Colors.blue,
@@ -424,10 +424,7 @@ class _CompareModePageState extends State<CompareModePage> {
           ),
           // Add the Raw Data / Processed Data toggle buttons
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -516,11 +513,18 @@ class _CompareModePageState extends State<CompareModePage> {
               ),
             ),
           ),
+          const Padding(
+            padding: EdgeInsets.only(top: 16.0, bottom: 4.0),
+            child: Text(
+              "Comparing to reference data :",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ),
           // Reference Data Button
           GestureDetector(
             onTap: _selectReferenceData,
             child: Container(
-              margin: const EdgeInsets.all(16.0),
+              margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
                 color: Colors.blue,
@@ -545,7 +549,7 @@ class _CompareModePageState extends State<CompareModePage> {
                   const SizedBox(width: 8.0),
                   Expanded(
                     child: Text(
-                      "Reference Data: $_referenceTimestamp",
+                      "Reference : $_referenceTimestamp",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

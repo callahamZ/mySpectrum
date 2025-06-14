@@ -7,8 +7,15 @@ class SpectrumChart extends StatelessWidget {
   final List<FlSpot>? colorChartData;
   final List<FlSpot>? redChartData; // New: Optional reference data
   final List<FlSpot>? secondLineData;
-  final List<FlSpot>? thirdLineData;
+  final List<FlSpot>? thirdLineData; // This will now be used for CIE data
   final double? maxY; // Optional maxY if external control is desired
+
+  // New parameters for custom axis ranges and CIE chart specific configurations
+  final double? minXOverride;
+  final double? maxXOverride;
+  final double? minYOverride;
+  final double? maxYOverride;
+  final bool isCIEChart;
 
   const SpectrumChart({
     Key? key,
@@ -16,8 +23,14 @@ class SpectrumChart extends StatelessWidget {
     this.colorChartData,
     this.redChartData,
     this.secondLineData,
-    this.thirdLineData,
+    this.thirdLineData, // This will now be used for CIE data
     this.maxY,
+    // Initialize new parameters
+    this.minXOverride,
+    this.maxXOverride,
+    this.minYOverride,
+    this.maxYOverride,
+    this.isCIEChart = false, // Default to false
   }) : super(key: key);
 
   // Helper function to calculate appropriate maxY based on data
@@ -54,15 +67,31 @@ class SpectrumChart extends StatelessWidget {
     return calculatedMaxY;
   }
 
+  // Helper function to calculate appropriate maxX based on data
+  double _calculateDynamicMaxX(List<FlSpot> data) {
+    if (data.isEmpty) return 8.0; // Default if no data
+
+    double maxXValue = data.map((e) => e.x).reduce(max);
+    // If the data is F1-F8, max X is 8. For other data, it might be different.
+    // Here, assuming default max X for existing charts is 8.
+    return maxXValue > 8.0 ? maxXValue : 8.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Determine the actual maxY for the chart
     final double chartMaxY =
-        maxY ?? _calculateDynamicMaxY(colorChartData!, redChartData);
+        maxYOverride ??
+        maxY ??
+        _calculateDynamicMaxY(colorChartData ?? [], redChartData);
+    final double chartMinX = minXOverride ?? 1;
+    final double chartMaxX =
+        maxXOverride ?? _calculateDynamicMaxX(colorChartData ?? []);
+    final double chartMinY = minYOverride ?? 0;
 
     return LineChart(
       LineChartData(
-        gridData: FlGridData(show: true),
+        gridData: FlGridData(show: !isCIEChart),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -70,29 +99,38 @@ class SpectrumChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 22,
               getTitlesWidget: (value, meta) {
-                switch (value.toInt()) {
-                  case 1:
-                    return const Text('F1');
-                  case 2:
-                    return const Text('F2');
-                  case 3:
-                    return const Text('F3');
-                  case 4:
-                    return const Text('F4');
-                  case 5:
-                    return const Text('F5');
-                  case 6:
-                    return const Text('F6');
-                  case 7:
-                    return const Text('F7');
-                  case 8:
-                    return const Text('F8');
-                  default:
-                    return const Text('');
+                // Custom titles for CIE chart
+                if (isCIEChart) {
+                  return Text(
+                    value.toStringAsFixed(1), // Show numerical labels for CIE
+                  );
+                } else {
+                  // Original titles for F1-F8 channels
+                  switch (value.toInt()) {
+                    case 1:
+                      return const Text('F1');
+                    case 2:
+                      return const Text('F2');
+                    case 3:
+                      return const Text('F3');
+                    case 4:
+                      return const Text('F4');
+                    case 5:
+                      return const Text('F5');
+                    case 6:
+                      return const Text('F6');
+                    case 7:
+                      return const Text('F7');
+                    case 8:
+                      return const Text('F8');
+                    default:
+                      return const Text('');
+                  }
                 }
               },
             ),
           ),
+
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
@@ -107,9 +145,9 @@ class SpectrumChart extends StatelessWidget {
             tooltipBorder: const BorderSide(color: Colors.black),
           ),
         ),
-        minX: 1,
-        maxX: 8,
-        minY: 0,
+        minX: chartMinX,
+        maxX: chartMaxX,
+        minY: chartMinY,
         maxY: chartMaxY, // Use the determined maxY
         lineBarsData: [
           if (colorChartData != null && colorChartData!.isNotEmpty)
@@ -121,7 +159,7 @@ class SpectrumChart extends StatelessWidget {
                   Colors.black, // Set line color to black as per your snippet
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
-                show: true,
+                show: true, // Always show area for colorChartData
                 gradient: const LinearGradient(
                   colors: [
                     Color.fromRGBO(111, 47, 159, 0.8),
@@ -172,19 +210,30 @@ class SpectrumChart extends StatelessWidget {
               dotData: FlDotData(show: true),
               belowBarData: BarAreaData(show: false),
             ),
-          // Third Line Data (e.g., Data Sensor Corr on Home Page)
+          // Third Line Data (now potentially used for CIE 1931)
           if (thirdLineData != null && thirdLineData!.isNotEmpty)
             LineChartBarData(
               spots: thirdLineData!,
               isCurved: true,
-              color:
-                  Colors
-                      .purple
-                      .shade700, // Distinct color for Data Sensor (Corr)
+              color: Colors.black,
+
               barWidth: 2,
               isStrokeCapRound: true,
               dotData: FlDotData(show: true),
-              belowBarData: BarAreaData(show: false),
+              belowBarData: BarAreaData(
+                show: !isCIEChart, // Hide area for CIE charts
+                gradient: const LinearGradient(
+                  // No gradient for CIE charts
+                  colors: [
+                    // You might want a specific gradient for thirdLineData if not CIE,
+                    // but for now, it's just a solid color as per previous code.
+                    Colors.purple,
+                    Colors.deepPurple,
+                  ],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
             ),
         ],
       ),
