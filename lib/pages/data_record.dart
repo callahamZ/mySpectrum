@@ -95,6 +95,14 @@ class _DataRecordPageState extends State<DataRecordPage> {
                 final spectrumValues =
                     (measurement['spectrumData'] as String?)?.split(',') ?? [];
 
+                // Extract Clear and NIR values if available
+                String clearValue = 'N/A';
+                String nirValue = 'N/A';
+                if (spectrumValues.length >= 10) {
+                  clearValue = spectrumValues[8];
+                  nirValue = spectrumValues[9];
+                }
+
                 return Container(
                   margin: const EdgeInsets.symmetric(
                     vertical: 8.0,
@@ -151,6 +159,10 @@ class _DataRecordPageState extends State<DataRecordPage> {
                                   ),
                                 ],
                               ),
+
+                            // Display Clear and NIR values
+                            Text('Clear: $clearValue'),
+                            Text('NIR: $nirValue'),
 
                             if (spectrumValues.length < 8 &&
                                 spectrumValues.isNotEmpty)

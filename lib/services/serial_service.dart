@@ -76,29 +76,42 @@ class SerialService {
   void _processSerialData(String rawData) {
     if (rawData.startsWith('@DataCap')) {
       List<String> values = rawData.substring('@DataCap,'.length).split(',');
-      if (values.length == 10) {
+      // Now expecting 12 values: F1-F8, Clear, NIR, Lux, Temperature
+      if (values.length == 12) {
+        // Changed from 10 to 12
         try {
-          List<double> spektrumData =
-              values.sublist(0, 8).map(double.parse).toList();
-          double lux = double.parse(values[8]);
-          double temperature = double.parse(values[9]);
+          List<double> spektrumData = [];
+          // Parse F1-F8
+          for (int i = 0; i < 8; i++) {
+            spektrumData.add(double.parse(values[i]));
+          }
+          // Parse Clear and NIR
+          spektrumData.add(double.parse(values[8])); // Clear
+          spektrumData.add(double.parse(values[9])); // NIR
+
+          double lux = double.parse(values[10]); // Lux is now at index 10
+          double temperature = double.parse(
+            values[11],
+          ); // Temperature is now at index 11
 
           DatabaseHelper.instance.insertMeasurement(
             timestamp: DateTime.now(),
             spectrumData: spektrumData,
             temperature: temperature,
             lux: lux,
-            // firebaseData: null, // No Firebase data here
           );
 
           if (onDataReceived != null) {
+            // onDataReceived expects List<double> for spektrumData, double for temperature, double for lux
             onDataReceived!(spektrumData, temperature, lux);
           }
         } catch (e) {
           print("Error parsing serial data: $e from: $rawData");
         }
       } else {
-        print("Received data has incorrect number of values: $rawData");
+        print(
+          "Received data has incorrect number of values: $rawData. Expected 12, got ${values.length}",
+        );
       }
     } else {
       print("Received data does not start with @DataCap: $rawData");

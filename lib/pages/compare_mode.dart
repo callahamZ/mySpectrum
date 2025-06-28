@@ -53,6 +53,59 @@ class _CompareModePageState extends State<CompareModePage> {
 
   final SerialService _serialService = SerialService();
 
+  final List<Map<String, String>> _channelCharacteristics = [
+    {
+      "Channel": "F1",
+      "Rentang Jangkauan": "405 - 425 nm",
+      "Representasi": "Purple",
+    },
+    {
+      "Channel": "F2",
+      "Rentang Jangkauan": "435 - 455 nm",
+      "Representasi": "Navy",
+    },
+    {
+      "Channel": "F3",
+      "Rentang Jangkauan": "470 - 490 nm",
+      "Representasi": "Blue",
+    },
+    {
+      "Channel": "F4",
+      "Rentang Jangkauan": "505 - 525 nm",
+      "Representasi": "Aqua",
+    },
+    {
+      "Channel": "F5",
+      "Rentang Jangkauan": "545 - 565 nm",
+      "Representasi": "Green",
+    },
+    {
+      "Channel": "F6",
+      "Rentang Jangkauan": "580 - 600 nm",
+      "Representasi": "Yellow",
+    },
+    {
+      "Channel": "F7",
+      "Rentang Jangkauan": "620 - 640 nm",
+      "Representasi": "Orange",
+    },
+    {
+      "Channel": "F8",
+      "Rentang Jangkauan": "670 - 690 nm",
+      "Representasi": "Red",
+    },
+    {
+      "Channel": "Clear",
+      "Rentang Jangkauan": "350 - 980 nm",
+      "Representasi": "White", // Changed to White for clarity
+    },
+    {
+      "Channel": "NIR",
+      "Rentang Jangkauan": "850 - 980 nm",
+      "Representasi": "Infrared", // Changed from "Black" to "Infrared"
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -302,6 +355,232 @@ class _CompareModePageState extends State<CompareModePage> {
       _serialService.onDataReceived = null;
     }
     super.dispose();
+  }
+
+  String _getChannelName(int index) {
+    if (index >= 0 && index < 8) {
+      return "F${index + 1}";
+    } else if (index == 8) {
+      return "Clear";
+    } else if (index == 9) {
+      return "NIR";
+    }
+    return ""; // Should not happen with current loop
+  }
+
+  Color _getColorFromName(String colorName) {
+    switch (colorName.toLowerCase()) {
+      case "purple":
+        return Colors.purple;
+      case "navy":
+        return Colors.indigo; // Using indigo as a close approximation for navy
+      case "blue":
+        return Colors.blue;
+      case "aqua":
+        return Colors.cyan; // Using cyan as a close approximation for aqua
+      case "green":
+        return Colors.green;
+      case "yellow":
+        return Colors.yellow;
+      case "orange":
+        return Colors.orange;
+      case "red":
+        return Colors.red;
+      case "white light": // Handle "White light" as white
+      case "white":
+        return Colors.white;
+      case "infrared": // Handle "Infrared" as black since it's not visible
+      case "black": // Keep black for the color box representation for infrared
+        return Colors.black;
+      default:
+        return Colors.grey; // Default color for unrecognized names
+    }
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10.0),
+          ),
+          elevation: 0.0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(50, 0, 0, 0),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Channel Characteristics",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 16.0),
+                // Wrap the Table with SingleChildScrollView to make it scrollable
+                SizedBox(
+                  height: 380,
+                  child: SingleChildScrollView(
+                    child: Table(
+                      columnWidths: const {
+                        0: FlexColumnWidth(1), // Channel
+                        1: FlexColumnWidth(2.5), // Rentang Jangkauan
+                        2: FlexColumnWidth(1.5),
+                      },
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                          ),
+                          children: const [
+                            TableCell(
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.middle,
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            TableCell(
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.middle,
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Wave Length",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            TableCell(
+                              verticalAlignment:
+                                  TableCellVerticalAlignment.middle,
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Color",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        for (var char in _channelCharacteristics)
+                          TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  char["Channel"]!,
+                                  style: const TextStyle(fontSize: 12),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  char["Rentang Jangkauan"]!,
+                                  style: const TextStyle(fontSize: 12),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              TableCell(
+                                verticalAlignment:
+                                    TableCellVerticalAlignment.middle,
+                                child: Center(
+                                  child:
+                                      char["Representasi"] ==
+                                              "Infrared" // Check if it's "Infrared"
+                                          ? const Text(
+                                            // Display as plain text
+                                            "Infrared",
+                                            style: TextStyle(fontSize: 12),
+                                            textAlign: TextAlign.center,
+                                          )
+                                          : Container(
+                                            width:
+                                                24, // Size of the color square
+                                            height:
+                                                24, // Size of the color square
+                                            decoration: BoxDecoration(
+                                              color: _getColorFromName(
+                                                char["Representasi"]!,
+                                              ),
+                                              border: Border.all(
+                                                color:
+                                                    char["Representasi"] ==
+                                                            "White"
+                                                        ? Colors.black
+                                                        : Colors
+                                                            .transparent, // Add border for white color
+                                                width:
+                                                    char["Representasi"] ==
+                                                            "White"
+                                                        ? 1.0
+                                                        : 0.0,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    4.0,
+                                                  ), // Slightly rounded corners
+                                            ),
+                                          ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16.0),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      "Close",
+                      style: TextStyle(color: Colors.blue),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -739,6 +1018,44 @@ class _CompareModePageState extends State<CompareModePage> {
                     ],
                   ),
               ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _showAboutDialog(context),
+            child: Container(
+              margin: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 16,
+              ),
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.purple, // A distinct color for the about button
+                borderRadius: BorderRadius.circular(10.0),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromARGB(50, 0, 0, 0),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 24.0),
+                  SizedBox(width: 8.0),
+                  Text(
+                    "About Channels",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
