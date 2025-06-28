@@ -792,6 +792,57 @@ class _CompareModePageState extends State<CompareModePage> {
               ),
             ),
           ),
+
+          Container(
+            margin: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(50, 0, 0, 0),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "---",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const Text(
+                      " Measured Data",
+                      style: TextStyle(color: Color.fromARGB(255, 85, 85, 85)),
+                    ),
+                  ],
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "---",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const Text(
+                      " Reference Data",
+                      style: TextStyle(color: Color.fromARGB(255, 85, 85, 85)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           const Padding(
             padding: EdgeInsets.only(top: 16.0, bottom: 4.0),
             child: Text(
